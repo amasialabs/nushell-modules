@@ -273,18 +273,16 @@ export def "show" [
   let snip = (get $target --source-id $source_id)
   let desc = ($snip.description? | default "")
 
-  print $"Name: ($snip.name)"
+  mut rows = []
+  $rows = ($rows | append { field: "Name", value: $snip.name })
 
   if (($desc | str length) > 0) {
-    let desc_line = $"▌ Description: ($desc)"
-    print $desc_line
+    $rows = ($rows | append { field: "Description", value: $desc })
   }
 
-  let command_line = $"▌ Command: ($snip.command)"
-  let source_path_line = $"▌ Source: ($snip.source_path)"
-  let source_id_line = $"▌ Source Id: ($snip.source_id | into string)"
+  $rows = ($rows | append { field: "Command", value: $snip.command })
+  $rows = ($rows | append { field: "Source", value: $snip.source_path })
+  $rows = ($rows | append { field: "Source Id", value: ($snip.source_id | into string) })
 
-  print $command_line
-  print $source_path_line
-  print $source_id_line
+  $rows
 }

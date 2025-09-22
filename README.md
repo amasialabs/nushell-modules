@@ -49,7 +49,7 @@ Import with `use amasia/snip` to expose the following commands:
 - `snip source rm <id|--path>` — Remove a source by id or full path.
 - `snip ls` — Show every snippet aggregated from all sources.
 - `snip search <term>` — Case-insensitive substring search over snippet names.
-- `snip show <name|index> [--source-id <id>]` — Inspect the snippet with a labeled breakdown (name, description, command, source).
+- `snip show <name|index> [--source-id <id>]` — Inspect the snippet as a two-column table of fields and values.
 - `snip run <name|index> [--source-id <id>]` — Execute the snippet in a fresh Nushell process.
 - `snip insert <name|index> [flags]` — Drop the command into the current buffer and/or clipboard.
 
