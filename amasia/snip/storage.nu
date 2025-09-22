@@ -2,7 +2,10 @@
 
 export const data_root_dir = "amasia-data"
 export const snip_subdir = "snip"
-export const snip_file_name = "snip.json"
+export const snip_config_name = "snip.json"
+export const default_snip_file_name = "default.snpx"
+
+const default_snip_template = "# Default Amasia snippets\nhello: echo 'Hello from Amasia'\n"
 
 # Internal: deterministic id from path (md5 first 8 chars)
 export def snip-id-from-path [p: string] {
@@ -20,18 +23,45 @@ def ensure-snip-paths [] {
     mkdir $snip_dir
   }
 
-  { data_root: $data_root, snip_dir: $snip_dir, config_file: ($snip_dir | path join $snip_file_name) }
+  let config_file = ($snip_dir | path join $snip_config_name)
+  let default_file = ($snip_dir | path join $default_snip_file_name)
+
+  if not ($default_file | path exists) {
+    $default_snip_template | save -f $default_file
+  }
+
+  {
+    data_root: $data_root,
+    snip_dir: $snip_dir,
+    config_file: $config_file,
+    default_file: $default_file
+  }
 }
 
 # Internal: reload sources from persistent storage
 export def --env reload-snip-sources [] {
   let paths = (ensure-snip-paths)
   let config_file = $paths.config_file
+  let default_path = $paths.default_file
+  let default_entry = { id: (snip-id-from-path $default_path), path: $default_path }
 
-  $env.AMASIA_SNIP_SOURCES = if ($config_file | path exists) {
-    open $config_file
+  let sources = if ($config_file | path exists) {
+    try {
+      open $config_file
+    } catch {
+      []
+    }
   } else {
     []
+  }
+
+  let has_default = ($sources | any {|r| $r.path == $default_path })
+  let final_sources = if $has_default { $sources } else { $sources | append $default_entry }
+
+  $env.AMASIA_SNIP_SOURCES = $final_sources
+
+  if not $has_default {
+    save-snip-sources
   }
 }
 
@@ -39,6 +69,12 @@ export def --env reload-snip-sources [] {
 export def save-snip-sources [] {
   let paths = (ensure-snip-paths)
   let config_file = $paths.config_file
+  let default_path = $paths.default_file
+  if not ($env.AMASIA_SNIP_SOURCES | any {|r| $r.path == $default_path }) {
+    let default_entry = { id: (snip-id-from-path $default_path), path: $default_path }
+    $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append $default_entry)
+  }
+
   $env.AMASIA_SNIP_SOURCES | to json | save -f $config_file
 }
 

@@ -110,6 +110,7 @@ Empty lines and lines beginning with `#` are ignored.
 ## Data Storage
 
 - Snippet sources list is stored at `($nu.data-dir | path join "amasia-data" "snip" "snip.json")`. Run `echo ($nu.data-dir | path join "amasia-data" "snip" "snip.json")` to see the absolute path on your system.
+- A default snippet pack lives at `($nu.data-dir | path join "amasia-data" "snip" "default.snpx")`. Feel free to edit or extend it; Amasia will recreate the file if it goes missing.
 - The list is automatically loaded on module import and saved when modified.
 - Changes are synchronized across different terminal sessions.
 
