@@ -272,13 +272,13 @@ export def "show" [
 ] {
   let snip = (get $target --source-id $source_id)
   let desc = ($snip.description? | default "")
-  let display_desc = (if (($desc | str length) > 0) { $desc } else { null })
 
-  [{
-    name: $snip.name,
-    description: $display_desc,
-    command: $snip.command,
-    source_path: $snip.source_path,
-    source_id: $snip.source_id
-  }]
+  print $"Name: ($snip.name)"
+
+  if (($desc | str length) > 0) {
+    print $"▌ Description: ($desc)"
+  }
+
+  print $"▌ Command: ($snip.command)"
+  print $"▌ Source: ($snip.source_path) (id: ($snip.source_id))"
 }
