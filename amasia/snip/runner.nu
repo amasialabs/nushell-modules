@@ -280,5 +280,5 @@ export def "show" [
   }
 
   print $"▌ Command: ($snip.command)"
-  print $"▌ Source: ($snip.source_path) (id: ($snip.source_id))"
+  print $"▌ Source: ($snip.source_path) \\(id: ($snip.source_id)\\)"
 }
