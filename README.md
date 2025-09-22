@@ -4,9 +4,11 @@ A modular Nushell extension for managing and executing code snippets.
 
 ## Installation
 
-1. Clone or copy the `amasia` directory to your Nushell modules directory:
-   - macOS: `~/Library/Application Support/nushell/modules/amasia/`
-   - Linux: `~/.config/nushell/modules/amasia/`
+1. Clone or copy the `amasia` directory to your Nushell modules directory. Determine the target dynamically:
+   ```nu
+   echo ($nu.default-config-dir | path join "modules" "amasia")
+   ```
+   Copy `amasia` so it lives at the printed path and Nushell can find `mod.nu` automatically.
 
 2. Import the module in your Nushell session:
    ```nu
@@ -15,20 +17,24 @@ A modular Nushell extension for managing and executing code snippets.
 
    Or add it to your `config.nu` for automatic loading:
    ```nu
-   use ~/Library/Application Support/nushell/modules/amasia
+   use ($nu.default-config-dir | path join "modules" "amasia")
    ```
 
 ## Module Structure
 
+Repository root layout:
+
 ```
-amasia/
-├── mod.nu               # Main module entry point
-├── README.md            # This file
-└── snippets/            # Snippets submodule
-    ├── mod.nu           # Snippets module entry
-    ├── storage.nu       # Storage management functions
-    ├── files.nu         # Source file management
-    └── runner.nu        # Snippet execution logic
+.
+├── AGENTS.md           # Contributor guide
+├── README.md           # This file
+└── amasia/             # Nushell module root referenced in examples
+    ├── mod.nu          # Main module entry point
+    └── snip/           # Commands, storage helpers, runners
+        ├── mod.nu      # snip module entry and dispatcher
+        ├── storage.nu  # Storage management functions
+        ├── files.nu    # Source file management
+        └── runner.nu   # Snippet execution logic
 ```
 
 ## Usage
@@ -115,10 +121,7 @@ Empty lines and lines starting with `#` are ignored.
 
 ## Data Storage
 
-- Snippet sources list is stored in: `$nu.data-dir/amasia/snippets.json`
-  - macOS: `~/Library/Application Support/nushell/amasia/snippets.json`
-  - Linux: `~/.local/share/nushell/amasia/snippets.json`
-
+- Snippet sources list is stored at `($nu.data-dir | path join "amasia" "snip.json")`. Run `echo ($nu.data-dir | path join "amasia" "snip.json")` if you need the absolute path.
 - The list is automatically loaded on module import and saved when modified
 - Changes are synchronized across different terminal sessions
 

@@ -123,12 +123,12 @@ def load-all-snip [] {
   | flatten
 }
 
-# List all available snip
+# List all available snippets
 export def --env "ls" [] {
   load-all-snip | select name command source_id
 }
 
-# Search snip by name
+# Search snippet by name
 export def --env "search" [
   query: string  # search query
 ] {
@@ -137,9 +137,9 @@ export def --env "search" [
   | select name command source_id
 }
 
-# Get a specific snip by name or row index; optional disambiguation by source id
+# Get a specific snippet by name or row index; optional disambiguation by source id
 def get [
-  target: string,           # snip name or numeric row index from `ls`
+  target: string,           # snippet name or numeric row index from `ls`
   --source-id: string = ""  # disambiguate when multiple names exist
 ] {
   let snip = load-all-snip
@@ -172,19 +172,19 @@ def get [
       if (($filtered | length) == 1) {
         $filtered | first
       } else {
-        error make { msg: $"Multiple snip found with name '($name)'. Use --source-id to disambiguate." }
+        error make { msg: $"Multiple snippets found with name '($name)'. Use --source-id to disambiguate." }
       }
     } else {
-      error make { msg: $"Multiple snip found with name '($name)'. Use --source-id to disambiguate." }
+      error make { msg: $"Multiple snippets found with name '($name)'. Use --source-id to disambiguate." }
     }
   } else {
     $matches | first
   }
 }
 
-# Insert snip command into the REPL buffer and/or clipboard
+# Insert snippet command into the REPL buffer and/or clipboard
 export def --env "insert" [
-  target: string,            # snip name or row index
+  target: string,            # snippet name or row index
   --source-id: string = "",  # disambiguate when names collide
   --clipboard(-c),           # copy only to clipboard
   --both(-b)                 # send to command line and clipboard
@@ -232,7 +232,7 @@ export def --env "insert" [
   }
 }
 
-# Execute a snip by name
+# Execute a snippet by name
 export def "run" [
   target: string,            # snip name or row index
   --source-id: string = ""   # disambiguate when names collide
@@ -241,7 +241,7 @@ export def "run" [
   nu -c $snip.command
 }
 
-# Show snip details
+# Show snippet details
 export def "show" [
   target: string,            # snip name or row index
   --source-id: string = ""   # disambiguate when names collide

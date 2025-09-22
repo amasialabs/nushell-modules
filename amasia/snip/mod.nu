@@ -4,7 +4,7 @@
 use files.nu
 export use files.nu ["source add" "source rm" "source ls"]
 
-# Export snip runner commands
+# Export snippet runner commands
 use runner.nu
 export use runner.nu ["ls" "search" "run" "show" "insert"]
 
