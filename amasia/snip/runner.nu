@@ -103,7 +103,7 @@ def load-all-snip [] {
           if $trimmed == "" {
             $comment_buffer = []
           } else if ($trimmed | str starts-with "#") {
-            let comment_text = ($trimmed | str replace --regex '^#\\s*' '' | str trim)
+            let comment_text = ($trimmed | str replace --regex '^#+\\s*' '' | str trim)
             if ($comment_text | str length) > 0 {
               $comment_buffer = ($comment_buffer | append $comment_text)
             }
