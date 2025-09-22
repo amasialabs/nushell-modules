@@ -159,7 +159,7 @@ export def --env main [
 export-env {
   # Keep snip sources as a list of records: [{id, path}]
   # Try to load from persistent storage
-  let data_dir = ($nu.data-dir | path join "amasia")
+  let data_dir = ($nu.data-dir | path join "amasia-data")
   if not ($data_dir | path exists) {
     mkdir $data_dir
   }

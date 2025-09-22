@@ -7,7 +7,7 @@ export def snip-id-from-path [p: string] {
 
 # Internal: reload sources from persistent storage
 export def --env reload-snip-sources [] {
-  let data_dir = ($nu.data-dir | path join "amasia")
+  let data_dir = ($nu.data-dir | path join "amasia-data")
   if not ($data_dir | path exists) {
     mkdir $data_dir
   }
@@ -22,7 +22,7 @@ export def --env reload-snip-sources [] {
 
 # Internal: save sources to persistent storage
 export def save-snip-sources [] {
-  let data_dir = ($nu.data-dir | path join "amasia")
+  let data_dir = ($nu.data-dir | path join "amasia-data")
   if not ($data_dir | path exists) {
     mkdir $data_dir
   }
