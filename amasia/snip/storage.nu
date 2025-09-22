@@ -5,7 +5,7 @@ export const snip_subdir = "snip"
 export const snip_config_name = "snip.json"
 export const default_snip_file_name = "default.snpx"
 
-const default_snip_template = "# Default Amasia snippets\nhello: echo 'Hello from Amasia'\n"
+const default_snip_template = "# Default Amasia snippets\nhello-world: echo 'Hello, world!'\n"
 
 # Internal: deterministic id from path (md5 first 8 chars)
 export def snip-id-from-path [p: string] {
