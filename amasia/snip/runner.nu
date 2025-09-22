@@ -93,28 +93,52 @@ def load-all-snip [] {
       if ($content | is-empty) {
         []
       } else {
-        $content
-        | lines
-        | where {|line| ($line | str trim) != "" }  # skip empty lines
-        | where {|line| not ($line | str starts-with "#") }  # skip comments
-        | each {|line|
-            if ($line | str contains ":") {
-              let parts = ($line | split row ":")
-              if ($parts | length) >= 2 {
-                {
-                  name: ($parts | first | str trim),
-                  command: ($parts | skip 1 | str join ":" | str trim),
+        let lines = ($content | lines)
+        mut entries = []
+        mut comment_buffer = []
+
+        for $line in $lines {
+          let trimmed = ($line | str trim)
+
+          if $trimmed == "" {
+            $comment_buffer = []
+          } else if ($trimmed | str starts-with "#") {
+            let comment_text = ($trimmed | str replace --regex '^#\\s*' '' | str trim)
+            if ($comment_text | str length) > 0 {
+              $comment_buffer = ($comment_buffer | append $comment_text)
+            }
+          } else if not ($line | str contains ":") {
+            $comment_buffer = []
+          } else {
+            let parts = ($line | split row ":")
+
+            if (($parts | length) < 2) {
+              $comment_buffer = []
+            } else {
+              let name = ($parts | first | str trim)
+              let command = ($parts | skip 1 | str join ":" | str trim)
+
+              if (($name | str length) == 0 or ($command | str length) == 0) {
+                $comment_buffer = []
+              } else {
+                let description = (if ($comment_buffer | is-empty) { "" } else { $comment_buffer | str join " " })
+
+                let entry = {
+                  name: $name,
+                  command: $command,
+                  description: $description,
                   source_id: $source.id,
                   source_path: $source.path
                 }
-              } else {
-                null
+
+                $entries = ($entries | append $entry)
+                $comment_buffer = []
               }
-            } else {
-              null
             }
           }
-        | where {|x| $x != null}
+        }
+
+        $entries
       }
     } else {
       []
@@ -248,6 +272,10 @@ export def "show" [
 ] {
   let snip = (get $target --source-id $source_id)
   print $"Name: ($snip.name)"
+  let desc = ($snip.description? | default "")
+  if (($desc | str length) > 0) {
+    print $"Description: ($desc)"
+  }
   print $"Command: ($snip.command)"
   print $"Source: ($snip.source_path) \(id: ($snip.source_id)\)"
 }

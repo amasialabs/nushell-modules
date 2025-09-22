@@ -94,6 +94,7 @@ Snippet files use a simple colon-separated format:
 
 ```
 # Comments start with #
+# Description lines directly above a snippet are shown by `snip show`
 snippet_name: command to execute
 another_snippet: ls -la | grep foo
 test: echo "Hello, World!"
@@ -105,7 +106,7 @@ Each line contains:
 2. First colon (`:`) as separator
 3. Command to execute (can contain additional colons)
 
-Empty lines and lines beginning with `#` are ignored.
+Empty lines are ignored. Comment lines starting with `#` are skipped unless they sit directly above a snippet, in which case they are concatenated and displayed as that snippet's description.
 
 ## Data Storage
 
