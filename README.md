@@ -109,7 +109,7 @@ Empty lines and lines beginning with `#` are ignored.
 
 ## Data Storage
 
-- Snippet sources list is stored at `($nu.data-dir | path join "amasia-data" "snip.json")`. Run `echo ($nu.data-dir | path join "amasia-data" "snip.json")` to see the absolute path on your system.
+- Snippet sources list is stored at `($nu.data-dir | path join "amasia-data" "snip" "snip.json")`. Run `echo ($nu.data-dir | path join "amasia-data" "snip" "snip.json")` to see the absolute path on your system.
 - The list is automatically loaded on module import and saved when modified.
 - Changes are synchronized across different terminal sessions.
 

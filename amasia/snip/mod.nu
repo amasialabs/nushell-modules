@@ -1,5 +1,8 @@
 # amasia/snip/mod.nu - snip module
 
+# Export storage helpers
+use storage.nu [snip-config-path]
+
 # Export file management commands
 use files.nu
 export use files.nu ["source add" "source rm" "source ls"]
@@ -159,11 +162,7 @@ export def --env main [
 export-env {
   # Keep snip sources as a list of records: [{id, path}]
   # Try to load from persistent storage
-  let data_dir = ($nu.data-dir | path join "amasia-data")
-  if not ($data_dir | path exists) {
-    mkdir $data_dir
-  }
-  let config_file = ($data_dir | path join "snip.json")
+  let config_file = (snip-config-path)
 
   $env.AMASIA_SNIPPET_SOURCES = (
     if ($env | columns | any {|c| $c == "AMASIA_SNIP_SOURCES"}) {

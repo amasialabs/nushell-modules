@@ -50,5 +50,5 @@ if not ($config_text | str contains $source_line) {
 if $updated {
     print $"  Modules deployed. Run the command below or restart your shell to apply the changes:\n"
     
-    print $"(ansi --escape '17;3;20m')   ($source_line)(ansi reset)"
+    print $"   ($source_line)"
 }
