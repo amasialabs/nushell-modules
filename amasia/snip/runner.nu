@@ -276,9 +276,13 @@ export def "show" [
   print $"Name: ($snip.name)"
 
   if (($desc | str length) > 0) {
-    print $"▌ Description: ($desc)"
+    let desc_line = $"▌ Description: ($desc)"
+    print $desc_line
   }
 
-  print $"▌ Command: ($snip.command)"
-  print $"▌ Source: ($snip.source_path) \\(id: ($snip.source_id)\\)"
+  let command_line = $"▌ Command: ($snip.command)"
+  let source_line = $"▌ Source: ($snip.source_path) (id: ($snip.source_id))"
+
+  print $command_line
+  print $source_line
 }
