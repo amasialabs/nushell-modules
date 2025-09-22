@@ -281,7 +281,7 @@ export def "show" [
   }
 
   let command_line = $"▌ Command: ($snip.command)"
-  let source_line = $"▌ Source: ($snip.source_path) (id: ($snip.source_id))"
+  let source_line = $"▌ Source: ($snip.source_path) (id: ($snip.source_id | into string))"
 
   print $command_line
   print $source_line
