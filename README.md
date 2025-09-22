@@ -1,35 +1,39 @@
-# Amasia
+# Amasia Nushell Modules
 
-A modular Nushell extension for managing and executing code snippets.
+A set of Nushell modules for curating and running reusable command snippets. The project currently ships the `snip` module.
+
+## Table of Contents
+- [Installation](#installation)
+- [Module Guide](#module-guide)
+  - [Repository Layout](#repository-layout)
+  - [snip](#snip)
+- [Usage Examples](#usage-examples)
+  - [Source Management](#source-management)
+  - [Finding & Running Snippets](#finding--running-snippets)
+- [Snippet File Format](#snippet-file-format)
+- [Data Storage](#data-storage)
+- [Future Plans](#future-plans)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Installation
 
-1. Clone or copy the `amasia` directory to your Nushell modules directory. Determine the target dynamically:
-   ```nu
-   echo ($nu.default-config-dir | path join "modules" "amasia")
-   ```
-   Copy `amasia` so it lives at the printed path and Nushell can find `mod.nu` automatically.
+Run the installer (requires Nushell ≥0.85 and git):
+```nu
+http get https://raw.githubusercontent.com/amasialabs/nushell-modules/refs/heads/main/install.nu | nu -c $in
+```
+The script clones the modules into your Nushell config directory and ensures your config sources the generated Amasia block. Follow the printed `source` command or restart Nushell to load the changes.
 
-2. Import the module in your Nushell session:
-   ```nu
-   use amasia
-   ```
+## Module Guide
 
-   Or add it to your `config.nu` for automatic loading:
-   ```nu
-   use ($nu.default-config-dir | path join "modules" "amasia")
-   ```
-
-## Module Structure
-
-Repository root layout:
+### Repository Layout
 
 ```
 .
 ├── AGENTS.md           # Contributor guide
 ├── README.md           # This file
 └── amasia/             # Nushell module root referenced in examples
-    ├── mod.nu          # Main module entry point
+    ├── mod.nu          # Umbrella module (re-exports snip)
     └── snip/           # Commands, storage helpers, runners
         ├── mod.nu      # snip module entry and dispatcher
         ├── storage.nu  # Storage management functions
@@ -37,67 +41,51 @@ Repository root layout:
         └── runner.nu   # Snippet execution logic
 ```
 
-## Usage
+### snip
 
-### Managing Snippet Sources
+Import with `use amasia/snip` to expose the following commands:
+- `snip source add <file>` — Register a snippet source file (deduplicated by hash id).
+- `snip source ls` — List the active sources with their ids and locations.
+- `snip source rm <id|--path>` — Remove a source by id or full path.
+- `snip ls` — Show every snippet aggregated from all sources.
+- `snip search <term>` — Case-insensitive substring search over snippet names.
+- `snip show <name|index> [--source-id <id>]` — Inspect the command and origin for a snippet.
+- `snip run <name|index> [--source-id <id>]` — Execute the snippet in a fresh Nushell process.
+- `snip insert <name|index> [flags]` — Drop the command into the current buffer and/or clipboard.
 
-Snippet sources are text files containing your code snippets in a simple format.
+All commands accept either a snippet name or the zero-based index returned by `snip ls`. Use `--source-id` when names collide across files.
 
-#### Add a source file
+## Usage Examples
+
+### Source Management
 ```nu
-amasia snippets source add /path/to/snippets.txt
+# Register a snippets file
+snip source add ~/snippets/demo.txt
+
+# Inspect configured sources
+snip source ls
+
+# Remove a source by the generated id
+auto_id = (snip source ls | get 0.id)
+snip source rm $auto_id
 ```
 
-#### List source files
+### Finding & Running Snippets
 ```nu
-amasia snippets source ls
-# or shorter:
-amasia snippets sources
-```
+# List everything with friendly indexes
+snip ls
 
-#### Remove a source file
-```nu
-# By ID (first 8 chars of MD5 hash)
-amasia snippets source rm 12345678
+# Search by name fragment
+snip search "git"
 
-# By path
-amasia snippets source rm --path /path/to/snippets.txt
-```
+# Show the command body for the first entry
+snip show 0
 
-### Working with Snippets
+# Run a named snippet, disambiguating by source id when necessary
+snip run deploy --source-id 57e8a148
 
-#### List all snippets
-```nu
-amasia snippets ls
-```
-
-#### Search snippets
-```nu
-amasia snippets search "query"
-```
-
-#### Show snippet details
-```nu
-# By name
-amasia snippets show snippet_name
-
-# Or by row index from `amasia snippets ls`
-amasia snippets show 0
-
-# If multiple snippets share the same name, disambiguate by source id
-amasia snippets show snippet_name --source-id 57e8a148
-```
-
-#### Run a snippet
-```nu
-# By name
-amasia snippets run snippet_name
-
-# Or by row index from `amasia snippets ls`
-amasia snippets run 0
-
-# Disambiguate when needed
-amasia snippets run snippet_name --source-id 57e8a148
+# Move a snippet into the command line buffer and clipboard
+snip insert 2 --both
 ```
 
 ## Snippet File Format
@@ -117,50 +105,13 @@ Each line contains:
 2. First colon (`:`) as separator
 3. Command to execute (can contain additional colons)
 
-Empty lines and lines starting with `#` are ignored.
+Empty lines and lines beginning with `#` are ignored.
 
 ## Data Storage
 
-- Snippet sources list is stored at `($nu.data-dir | path join "amasia" "snip.json")`. Run `echo ($nu.data-dir | path join "amasia" "snip.json")` if you need the absolute path.
-- The list is automatically loaded on module import and saved when modified
-- Changes are synchronized across different terminal sessions
-
-## Examples
-
-### Create a snippets file
-```nu
-# Create a file with your favorite commands
-echo "# My snippets
-gs: git status
-ga: git add -A
-gc: git commit -m
-gp: git push
-ll: ls -la
-ports: netstat -an | grep LISTEN" | save ~/snippets/git.txt
-```
-
-### Add and use snippets
-```nu
-# Add the file as a source
-amasia snippets source add ~/snippets/git.txt
-
-# List available snippets
-amasia snippets ls
-
-# Run a snippet
-amasia snippets run gs  # Executes: git status
-```
-
-### Multiple snippet files
-```nu
-# You can have multiple snippet files for organization
-amasia snippets source add ~/snippets/git.txt
-amasia snippets source add ~/snippets/docker.txt
-amasia snippets source add ~/snippets/personal.txt
-
-# All snippets from all files are available
-amasia snippets ls
-```
+- Snippet sources list is stored at `($nu.data-dir | path join "amasia" "snip.json")`. Run `echo ($nu.data-dir | path join "amasia" "snip.json")` to see the absolute path on your system.
+- The list is automatically loaded on module import and saved when modified.
+- Changes are synchronized across different terminal sessions.
 
 ## Future Plans
 
