@@ -9,7 +9,7 @@ export use files.nu ["source rm" "source ls" "source new"]
 
 # Export snippet runner commands
 use runner.nu
-export use runner.nu ["ls" "search" "run" "show" "paste"]
+export use runner.nu ["ls" "run" "show" "paste"]
 
 # Export snippet authoring commands
 use editor.nu
@@ -110,12 +110,6 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
       error make { msg: "snip ls does not accept arguments." }
     }
     ls
-  } else if ($cmd == "search") {
-    if ($rest | is-empty) {
-      error make { msg: "Provide a search query." }
-    }
-    let query = ($rest | str join " ")
-    search $query
   } else if ($cmd == "show") {
     let parsed = (parse-target-args $rest)
     if ($parsed.source | is-empty) {
@@ -167,12 +161,11 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #
 # Subcommands:
 #   ls            List every snippet aggregated from all sources.
-#   search <term> Search snippet names using a case-insensitive substring match.
 #   show <name>   Display snippet details, optionally filtered by --source.
 #   run <name>    Execute the snippet in a fresh Nushell process.
 #   new           Create a snippet in the default or selected source file.
 #   paste <name>  Stage the snippet in the REPL buffer and/or clipboard.
-#   source *      Manage registered snippet source files (including 'source default').
+#   source *      Manage registered snippet source files.
 #
 # Examples:
 #   snip ls

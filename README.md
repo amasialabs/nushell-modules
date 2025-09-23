@@ -5,7 +5,6 @@ A set of Nushell modules for curating and running reusable command snippets. The
 ## Table of Contents
 - [Installation](#installation)
 - [Module Guide](#module-guide)
-  - [Repository Layout](#repository-layout)
   - [snip](#snip)
 - [Usage Examples](#usage-examples)
   - [Source Management](#source-management)
@@ -30,57 +29,34 @@ If the installer prints a `source` command, run it first and then execute `use a
 
 ## Module Guide
 
-### Repository Layout
-
-```
-.
-├── AGENTS.md           # Contributor guide
-├── README.md           # This file
-└── amasia/             # Nushell module root referenced in examples
-    ├── mod.nu          # Umbrella module (re-exports snip)
-    └── snip/           # Commands, storage helpers, runners
-        ├── mod.nu      # snip module entry and dispatcher
-        ├── storage.nu  # Storage management functions
-        ├── files.nu    # Source file management
-        ├── editor.nu   # Snippet authoring commands
-        └── runner.nu   # Snippet execution logic
-```
 
 ### snip
 
 Import with `use amasia/snip` to expose the following commands:
-- `snip source add <file>` — Register a snippet source file (deduplicated by hash id).
-- `snip source ls` — List the active sources with their ids and locations.
-- `snip source rm <id|--path>` — Remove a source by id or full path.
-- `snip source default <id|--path>` — Mark a source as the default target for new snippets.
+- `snip source ls` — List all source files in the snip directory.
+- `snip source rm <name>` — Remove a source file by name (cannot remove default).
+- `snip source new <name>` — Create a new empty snippets file.
 - `snip ls` — Show every snippet aggregated from all sources.
-- `snip search <term>` — Case-insensitive substring search over snippet names.
-- `snip show <name|index> [--source-id <id>]` — Inspect the snippet as a two-column table of fields and values.
-- `snip run <name|index> [--source-id <id>]` — Execute the snippet in a fresh Nushell process.
-- `snip new --name <value> --commands <cmd1> [<cmd2> ...] [--source-id <id>]` — Create a snippet with one or more commands in the default or selected source.
-- `snip remove <name|index> [--source-id <id>]` — Remove a snippet by name or ls index.
-- `snip paste <name|index> [flags]` — Drop the command into the current buffer and/or clipboard.
+- `snip show <name|index> [--source <name>]` — Inspect the snippet as a two-column table of fields and values.
+- `snip run <name|index> [--source <name>]` — Execute the snippet in a fresh Nushell process.
+- `snip new --name <value> --commands [<cmd1> <cmd2> ...] [--source <name>]` — Create a snippet with one or more commands in the default or selected source.
+- `snip rm <name|index> [--source <name>]` — Remove a snippet by name or ls index.
+- `snip paste <name|index> [--source <name>] [flags]` — Drop the command into the current buffer and/or clipboard.
 
-All commands accept either a snippet name or the zero-based index returned by `snip ls`. Use `--source-id` when names collide across files.
+All commands accept either a snippet name or the zero-based index returned by `snip ls`. Use `--source` when names collide across files.
 
 ## Usage Examples
 
 ### Source Management
 ```nu
-# Register a snippets file (validates format & warns on duplicates)
-snip source add ~/snippets/demo.nuon
+# Create a new snippets source file
+snip source new mypack
 
-# Create a new snippets file in the current directory and register it
-snip source new mypack.nuon
+# List all source files
+snip source ls
 
-# Inspect configured sources (the `default` column marks the active target)
-snip source
-
-# Promote another source to be the default (use an id from the table above)
-snip source default 57e8a148
-
-# Remove a source by the generated id (alias: `source remove`)
-snip source remove 57e8a148
+# Remove a source by name (cannot remove default)
+snip source rm mypack
 ```
 
 ### Finding & Running Snippets
@@ -88,14 +64,11 @@ snip source remove 57e8a148
 # List everything with friendly indexes
 snip ls
 
-# Search by name fragment
-snip search "git"
-
 # Show the command body for the first entry
 snip show 0
 
-# Run a named snippet, disambiguating by source id when necessary
-snip run deploy --source-id 57e8a148
+# Run a named snippet, disambiguating by source when necessary
+snip run deploy --source mypack
 
 # Move a snippet into the command line buffer and clipboard
 snip paste 2 --both
@@ -104,10 +77,13 @@ snip paste 2 --both
 ### Authoring Snippets
 ```nu
 # Add a snippet to the default source
-snip new --name greet --commands "echo 'Hello from Nu'"
+snip new --name greet --commands ["echo 'Hello from Nu'"]
 
 # Add a multi-command snippet to a specific source
-snip new --name deploy --commands "git pull" "npm run deploy" --source-id 57e8a148
+snip new --name deploy --commands ["git pull" "npm run deploy"] --source mypack
+
+# Remove a snippet
+snip rm greet
 ```
 
 ## Snippet File Format
@@ -140,9 +116,9 @@ Additional fields are ignored for now but preserved in case the file is edited b
 ## Data Storage
 
 - Snippet data lives under `$nu.home-path/.amasia/nushell/data/snip`.
-- Sources list path: `($nu.home-path | path join ".amasia" "nushell" "data" "snip" "sources.nuon")`.
-- Default snippets pack: `($nu.home-path | path join ".amasia" "nushell" "data" "snip" "snippets.nuon")`.
-- The list is automatically loaded on module import and saved when modified; changes are synchronized across sessions.
+- All `.nuon` files in this directory are automatically treated as sources.
+- Default snippets pack: `($nu.home-path | path join ".amasia" "nushell" "data" "snip" "default.nuon")`.
+- Sources are discovered by scanning the directory on each operation; no separate config file needed.
 
 ## Future Plans
 

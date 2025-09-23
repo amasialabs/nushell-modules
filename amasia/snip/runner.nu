@@ -187,17 +187,9 @@ def load-all-snip [] {
 
 # List all available snippets
 export def --env "ls" [] {
-  load-all-snip | select name command source_name
+  load-all-snip | select name command source_name | rename name command source
 }
 
-# Search snippet by name
-export def --env "search" [
-  query: string  # search query
-] {
-  load-all-snip
-  | where {|s| $s.name | str contains -i $query }
-  | select name command source_id
-}
 
 # Get a specific snippet by name or row index; optional disambiguation by source id
 def get [
