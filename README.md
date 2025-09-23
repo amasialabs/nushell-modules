@@ -151,6 +151,7 @@ Additional fields are ignored for now but preserved in case the file is edited b
 - [ ] Export/import functionality
 - [ ] Snippet categories and tags
 - [ ] Integration with external snippet managers
+- [ ] Interactive run mode (-i): mixed execution with in-session steps using markers (prefix `paste:` or suffix `#@paste`). Annotated steps are staged into the current REPL and followed by automatic continuation via `snip resume <token>`; non-annotated steps run in isolated `nu -c` subprocesses.
 
 ## Contributing
 
