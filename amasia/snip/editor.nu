@@ -163,9 +163,40 @@ export def --env "remove" [
     error make { msg: "Target must not be empty" }
   }
 
-  use runner.nu [load-all-snip]
-
-  let all = (load-all-snip)
+  # Load all snippets to resolve target and source path
+  reload-snip-sources
+  let srcs = $env.AMASIA_SNIP_SOURCES
+  let all = (
+    $srcs
+    | each {|source|
+        if ($source.path | path exists) {
+          let raw = (try { open $source.path --raw } catch { let err_msg = (try { $in.msg } catch { "" }); let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }; error make { msg: $"Failed to read snip source ($source.path).$suffix" } })
+          if ($raw | str trim | is-empty) {
+            []
+          } else {
+            let parsed = (try { $raw | from nuon } catch { let err_msg = (try { $in.msg } catch { "" }); let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }; error make { msg: $"Failed to parse snip source ($source.path) as nuon.$suffix" } })
+            let pdesc = ($parsed | describe)
+            let is_table = ($pdesc | str starts-with "table<")
+            let is_list = ($pdesc | str starts-with "list<")
+            if (not $is_table and not $is_list) {
+              error make { msg: $"Snip source ($source.path) must contain a list of records." }
+            }
+            $parsed
+            | each {|snip|
+                let cols = ($snip | columns)
+                if not ($cols | any {|c| $c == "name" }) {
+                  error make { msg: $"A record in ($source.path) is missing the 'name' field." }
+                }
+                if not ($cols | any {|c| $c == "commands" }) {
+                  error make { msg: $"A record in ($source.path) is missing the 'commands' field." }
+                }
+                { name: ($snip.name | into string | str trim), source_id: $source.id, source_path: $source.path }
+            }
+          }
+        } else { [] }
+    }
+    | flatten
+  )
   if ($all | is-empty) {
     error make { msg: "No snippets found." }
   }
