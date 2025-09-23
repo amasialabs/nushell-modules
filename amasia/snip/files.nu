@@ -20,7 +20,7 @@ export def --env "source add" [
   }
 
   let id = (snip-id-from-path $p)
-  $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append { id: $id, path: $p })
+  $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append { id: $id, path: $p, is_default: false })
   save-snip-sources
 }
 
@@ -55,8 +55,55 @@ export def --env "source rm" [
   save-snip-sources
 }
 
+# Set the default snip source
+export def --env "source default" [
+  pos_id?: string,
+  --id: string = "",
+  --path: string = ""
+] {
+  reload-snip-sources
+
+  let final_id = if ($pos_id != null) { $pos_id } else { $id }
+  let has_id = ($final_id != null and $final_id != "")
+  let has_path = (not ($path | is-empty))
+
+  if (not $has_id and not $has_path) {
+    error make { msg: "Provide an id or --path" }
+  }
+
+  if ($has_id and $has_path) {
+    error make { msg: "Provide only one selector: id or --path" }
+  }
+
+  let target_id = if $has_path {
+    snip-id-from-path ($path | path expand)
+  } else {
+    $final_id
+  }
+
+  let sources = $env.AMASIA_SNIP_SOURCES
+  let matches = ($sources | where id == $target_id)
+
+  if (($matches | length) == 0) {
+    error make { msg: $"Snip source '($target_id)' not found." }
+  }
+
+  $env.AMASIA_SNIP_SOURCES = ($sources | each {|src|
+    if ($src.id == $target_id) {
+      $src | upsert is_default true
+    } else {
+      $src | upsert is_default false
+    }
+  })
+
+  save-snip-sources
+  print $"Default snip source set to '($target_id)'."
+}
+
 # List configured snip sources
 export def --env "source ls" [] {
   reload-snip-sources
-  $env.AMASIA_SNIP_SOURCES | select id path
+  $env.AMASIA_SNIP_SOURCES
+  | select is_default id path
+  | rename default id path
 }

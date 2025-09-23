@@ -38,14 +38,106 @@ def ensure-snip-paths [] {
   }
 }
 
+def normalize-sources [sources default_path default_entry] {
+  mut normalized = []
+  mut changed = false
+
+  for $entry in ($sources | enumerate) {
+    let idx = $entry.index
+    let item = $entry.item
+    let item_type = ($item | describe)
+
+    if ($item_type | str starts-with "record<") == false {
+      error make { msg: $"Entry ($idx) in snip sources must be a record." }
+    }
+
+    let cols = ($item | columns)
+    if not ($cols | any {|c| $c == "id" }) {
+      error make { msg: $"Entry ($idx) in snip sources is missing the 'id' field." }
+    }
+    if not ($cols | any {|c| $c == "path" }) {
+      error make { msg: $"Entry ($idx) in snip sources is missing the 'path' field." }
+    }
+
+    let id = ($item.id | into string | str trim)
+    if ($id | str length) == 0 {
+      error make { msg: $"Entry ($idx) in snip sources has an empty 'id'." }
+    }
+
+    let path = ($item.path | into string | str trim)
+    if ($path | str length) == 0 {
+      error make { msg: $"Entry ($idx) in snip sources has an empty 'path'." }
+    }
+
+    mut is_default = false
+    if ($cols | any {|c| $c == "is_default" }) {
+      let flag = $item.is_default
+      let flag_type = ($flag | describe)
+      if $flag_type == "bool" {
+        $is_default = $flag
+      } else {
+        error make { msg: $"Entry ($idx) in snip sources must store 'is_default' as a bool." }
+      }
+    } else {
+      $changed = true
+    }
+
+    let record = { id: $id, path: $path, is_default: $is_default }
+    $normalized = ($normalized | append $record)
+  }
+
+  let has_default_path = ($normalized | any {|r| $r.path == $default_path })
+  if not $has_default_path {
+    $normalized = ($normalized | append $default_entry)
+    $changed = true
+  }
+
+  let defaults = ($normalized | where is_default)
+  let default_count = ($defaults | length)
+
+  if $default_count == 0 {
+    mut updated = []
+    for $item in $normalized {
+      if ($item.path == $default_path) {
+        if not $item.is_default {
+          $changed = true
+        }
+        $updated = ($updated | append ($item | upsert is_default true))
+      } else {
+        $updated = ($updated | append $item)
+      }
+    }
+    $normalized = $updated
+  } else if $default_count > 1 {
+    let keep_id = ($defaults | first | get id)
+    mut updated = []
+    for $item in $normalized {
+      if ($item.id == $keep_id) {
+        if not $item.is_default {
+          $changed = true
+        }
+        $updated = ($updated | append ($item | upsert is_default true))
+      } else {
+        if $item.is_default {
+          $changed = true
+        }
+        $updated = ($updated | append ($item | upsert is_default false))
+      }
+    }
+    $normalized = $updated
+  }
+
+  { sources: $normalized, changed: $changed }
+}
+
 # Internal: reload sources from persistent storage
 export def --env reload-snip-sources [] {
   let paths = (ensure-snip-paths)
   let config_file = $paths.config_file
   let default_path = $paths.default_file
-  let default_entry = { id: (snip-id-from-path $default_path), path: $default_path }
+  let default_entry = { id: (snip-id-from-path $default_path), path: $default_path, is_default: false }
 
-  let sources = if ($config_file | path exists) {
+  let raw_sources = if ($config_file | path exists) {
     let raw = (try {
       open $config_file --raw
     } catch {
@@ -76,12 +168,10 @@ export def --env reload-snip-sources [] {
     []
   }
 
-  let has_default = ($sources | any {|r| $r.path == $default_path })
-  let final_sources = if $has_default { $sources } else { $sources | append $default_entry }
+  let normalized = (normalize-sources $raw_sources $default_path $default_entry)
+  $env.AMASIA_SNIP_SOURCES = $normalized.sources
 
-  $env.AMASIA_SNIP_SOURCES = $final_sources
-
-  if not $has_default {
+  if $normalized.changed {
     save-snip-sources
   }
 }
@@ -91,10 +181,10 @@ export def save-snip-sources [] {
   let paths = (ensure-snip-paths)
   let config_file = $paths.config_file
   let default_path = $paths.default_file
-  if not ($env.AMASIA_SNIP_SOURCES | any {|r| $r.path == $default_path }) {
-    let default_entry = { id: (snip-id-from-path $default_path), path: $default_path }
-    $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append $default_entry)
-  }
+  let default_entry = { id: (snip-id-from-path $default_path), path: $default_path, is_default: false }
+
+  let normalized = (normalize-sources $env.AMASIA_SNIP_SOURCES $default_path $default_entry)
+  $env.AMASIA_SNIP_SOURCES = $normalized.sources
 
   $env.AMASIA_SNIP_SOURCES
   | to nuon --indent 2

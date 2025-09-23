@@ -42,6 +42,7 @@ If the installer prints a `source` command, run it first and then execute `use a
         ├── mod.nu      # snip module entry and dispatcher
         ├── storage.nu  # Storage management functions
         ├── files.nu    # Source file management
+        ├── editor.nu   # Snippet authoring commands
         └── runner.nu   # Snippet execution logic
 ```
 
@@ -51,10 +52,12 @@ Import with `use amasia/snip` to expose the following commands:
 - `snip source add <file>` — Register a snippet source file (deduplicated by hash id).
 - `snip source ls` — List the active sources with their ids and locations.
 - `snip source rm <id|--path>` — Remove a source by id or full path.
+- `snip source default <id|--path>` — Mark a source as the default target for new snippets.
 - `snip ls` — Show every snippet aggregated from all sources.
 - `snip search <term>` — Case-insensitive substring search over snippet names.
 - `snip show <name|index> [--source-id <id>]` — Inspect the snippet as a two-column table of fields and values.
 - `snip run <name|index> [--source-id <id>]` — Execute the snippet in a fresh Nushell process.
+- `snip add --name <value> --command <value> [--source-id <id>]` — Append a snippet to the default or selected source.
 - `snip insert <name|index> [flags]` — Drop the command into the current buffer and/or clipboard.
 
 All commands accept either a snippet name or the zero-based index returned by `snip ls`. Use `--source-id` when names collide across files.
@@ -66,12 +69,14 @@ All commands accept either a snippet name or the zero-based index returned by `s
 # Register a snippets file
 snip source add ~/snippets/demo.nuon
 
-# Inspect configured sources
+# Inspect configured sources (the `default` column marks the active target)
 snip source ls
 
+# Promote another source to be the default (use an id from the table above)
+snip source default 57e8a148
+
 # Remove a source by the generated id
-auto_id = (snip source ls | get 0.id)
-snip source rm $auto_id
+snip source rm 57e8a148
 ```
 
 ### Finding & Running Snippets
@@ -90,6 +95,15 @@ snip run deploy --source-id 57e8a148
 
 # Move a snippet into the command line buffer and clipboard
 snip insert 2 --both
+```
+
+### Authoring Snippets
+```nu
+# Add a snippet to the default source
+snip add --name greet --command "echo 'Hello from Nu'"
+
+# Add a multi-line snippet to a specific source
+snip add --name deploy --command "git pull\nnpm run deploy" --source-id 57e8a148
 ```
 
 ## Snippet File Format

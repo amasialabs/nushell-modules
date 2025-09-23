@@ -1,12 +1,14 @@
 # Repository Guidelines
 
 ## Project Structure & Module Organization
-Amasia is a Nushell module distributed as plain .nu scripts. `mod.nu` re-exports the `snip` submodule, but contributors typically load `use amasia/snip` so commands are available directly as `snip ...`. The `snip/` directory contains `files.nu` (source registration/removal), `storage.nu` (id hashing + persistence), `runner.nu` (list/search/run/clipboard flows), and its own `mod.nu` for CLI dispatch. IDE settings under `.idea/` are optional; avoid storing secrets there. When you add new behaviour, group helpers beside the module that calls them to keep load order predictable.
+Amasia is a Nushell module distributed as plain .nu scripts. `mod.nu` re-exports the `snip` submodule, but contributors typically load `use amasia/snip` so commands are available directly as `snip ...`. The `snip/` directory contains `files.nu` (source registration/removal), `storage.nu` (id hashing + persistence), `editor.nu` (snippet creation helpers), `runner.nu` (list/search/run/clipboard flows), and its own `mod.nu` for CLI dispatch. IDE settings under `.idea/` are optional; avoid storing secrets there. When you add new behaviour, group helpers beside the module that calls them to keep load order predictable.
 
 ## Build, Test, and Development Commands
 Run everything inside Nushell >=0.85. Helpful commands while iterating:
 ```
 nu -c 'use ./amasia/snip/mod.nu; snip source add ~/snippets/demo.nuon'   # register a snippets file
+nu -c 'use ./amasia/snip/mod.nu; snip source default 57e8a148'           # mark a default source
+nu -c 'use ./amasia/snip/mod.nu; snip add --name greet --command "echo hi"'  # add a snippet to the default source
 nu -c 'use ./amasia/snip/mod.nu; snip ls'                               # list merged snippets
 nu -c 'use ./amasia/snip/mod.nu; snip run demo --source-id 57e8a148'    # execute a snippet
 nu -c 'use ./amasia/snip/mod.nu; snip search git'                       # exercise dispatcher directly

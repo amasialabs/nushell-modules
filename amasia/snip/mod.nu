@@ -5,11 +5,15 @@ use storage.nu [reload-snip-sources]
 
 # Export file management commands
 use files.nu
-export use files.nu ["source add" "source rm" "source ls"]
+export use files.nu ["source add" "source rm" "source ls" "source default"]
 
 # Export snippet runner commands
 use runner.nu
 export use runner.nu ["ls" "search" "run" "show" "insert"]
+
+# Export snippet authoring commands
+use editor.nu
+export use editor.nu ["add"]
 
 # Parse target argument and optional --source-id flag
 def parse-target-args [args: list<string>] {
@@ -157,8 +161,9 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #   search <term> Search snippet names using a case-insensitive substring match.
 #   show <name>   Display snippet details, optionally filtered by --source-id.
 #   run <name>    Execute the snippet in a fresh Nushell process.
+#   add           Create a snippet in the default or selected source file.
 #   insert <name> Stage the snippet in the REPL buffer and/or clipboard.
-#   source *      Manage registered snippet source files.
+#   source *      Manage registered snippet source files (including 'source default').
 #
 # Examples:
 #   snip ls
