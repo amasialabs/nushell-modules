@@ -20,7 +20,7 @@ A set of Nushell modules for curating and running reusable command snippets. The
 
 Run the installer (requires Nushell ≥0.85 and git):
 ```nu
-http get https://raw.githubusercontent.com/amasialabs/nushell-modules/refs/heads/main/install.nu | nu -c $in
+http get https://raw.githubusercontent.com/amasialabs/nushell-modules/main/install.nu | nu -c $in
 ```
 The script clones the modules into your Nushell config directory and ensures your config sources the generated Amasia block. Follow the printed `source` command or restart Nushell to load the changes.
 
