@@ -85,60 +85,97 @@ def load-all-snip [] {
     return []
   }
 
-  $sources | each {|source|
+  $sources
+  | each {|source|
     if ($source.path | path exists) {
-      # Read file: name:command (first colon is separator)
-      let content = (open $source.path --raw)
+      let raw = (try {
+        open $source.path --raw
+      } catch {
+        let err_msg = (try { $in.msg } catch { "" })
+        let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+        error make { msg: $"Failed to read snip source ($source.path).$suffix" }
+      })
 
-      if ($content | is-empty) {
+      if ($raw | str trim | is-empty) {
         []
       } else {
-        let lines = ($content | lines)
-        mut entries = []
-        mut comment_buffer = []
+        let parsed = (try {
+          $raw | from nuon
+        } catch {
+          let err_msg = (try { $in.msg } catch { "" })
+          let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+          error make { msg: $"Failed to parse snip source ($source.path) as nuon.$suffix" }
+        })
 
-        for $line in $lines {
-          let trimmed = ($line | str trim)
-
-          if $trimmed == "" {
-            $comment_buffer = []
-          } else if ($trimmed | str starts-with "#") {
-            let comment_text = ($trimmed | str replace --regex '^#+' '' | str trim)
-            if ($comment_text | str length) > 0 {
-              $comment_buffer = ($comment_buffer | append $comment_text)
-            }
-          } else if not ($line | str contains ":") {
-            $comment_buffer = []
-          } else {
-            let parts = ($line | split row ":")
-
-            if (($parts | length) < 2) {
-              $comment_buffer = []
-            } else {
-              let name = ($parts | first | str trim)
-              let command = ($parts | skip 1 | str join ":" | str trim)
-
-              if (($name | str length) == 0 or ($command | str length) == 0) {
-                $comment_buffer = []
-              } else {
-                let description = (if ($comment_buffer | is-empty) { "" } else { $comment_buffer | str join " " })
-
-                let entry = {
-                  name: $name,
-                  command: $command,
-                  description: $description,
-                  source_id: $source.id,
-                  source_path: $source.path
-                }
-
-                $entries = ($entries | append $entry)
-                $comment_buffer = []
-              }
-            }
-          }
+        let parsed_type = ($parsed | describe)
+        if ($parsed_type | str starts-with "table<") == false {
+          error make { msg: $"Snip source ($source.path) must contain a list of records." }
         }
 
-        $entries
+        $parsed
+        | enumerate
+        | each {|entry|
+          let snip = $entry.item
+          let idx = $entry.index
+
+          let snip_type = ($snip | describe)
+          if ($snip_type | str starts-with "record<") == false {
+            error make { msg: $"Entry ($idx) in ($source.path) must be a record." }
+          }
+
+          let has_name = ($snip | columns | any {|c| $c == "name" })
+          if $has_name == false {
+            error make { msg: $"Entry ($idx) in ($source.path) is missing the 'name' field." }
+          }
+
+          let has_command = ($snip | columns | any {|c| $c == "command" })
+          if $has_command == false {
+            error make { msg: $"Entry ($idx) in ($source.path) is missing the 'command' field." }
+          }
+
+          let name = ($snip.name | into string | str trim)
+          if ($name | str length) == 0 {
+            error make { msg: $"Entry ($idx) in ($source.path) has an empty 'name' field." }
+          }
+
+          let raw_command = $snip.command
+          let command_desc = ($raw_command | describe)
+
+          let command_text = if $command_desc == "string" {
+            $raw_command
+          } else if ($command_desc | str starts-with "list<string") {
+            $raw_command | str join "\n"
+          } else {
+            error make { msg: $"Entry '($name)' in ($source.path) must use 'command' as string or list<string>." }
+          }
+
+          if ($command_text | str length) == 0 {
+            error make { msg: $"Entry '($name)' in ($source.path) has an empty command." }
+          }
+
+          let description = if ($snip | columns | any {|c| $c == "description" }) {
+            let desc_val = $snip.description
+            let desc_desc = ($desc_val | describe)
+
+            if $desc_desc == "string" {
+              $desc_val
+            } else if ($desc_desc | str starts-with "list<string") {
+              $desc_val | str join " "
+            } else {
+              error make { msg: $"Entry '($name)' in ($source.path) must use 'description' as string or list<string>." }
+            }
+          } else {
+            ""
+          }
+
+          {
+            name: $name,
+            command: $command_text,
+            description: $description,
+            source_id: $source.id,
+            source_path: $source.path
+          }
+        }
       }
     } else {
       []

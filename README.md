@@ -60,7 +60,7 @@ All commands accept either a snippet name or the zero-based index returned by `s
 ### Source Management
 ```nu
 # Register a snippets file
-snip source add ~/snippets/demo.txt
+snip source add ~/snippets/demo.nuon
 
 # Inspect configured sources
 snip source ls
@@ -90,28 +90,35 @@ snip insert 2 --both
 
 ## Snippet File Format
 
-Snippet files use a simple colon-separated format:
+Snippet files are written in NuON. Each file must evaluate to a list of records with at least a `name` and `command` field:
 
+```nuon
+[
+  {
+    name: "deploy",
+    description: "Restart the web service",
+    command: [
+      "git pull",
+      "npm run deploy"
+    ]
+  },
+  {
+    name: "hello-world",
+    command: "echo 'Hello, world!'"
+  }
+]
 ```
-# Comments start with #
-# Description lines directly above a snippet are shown by `snip show`
-snippet_name: command to execute
-another_snippet: ls -la | grep foo
-test: echo "Hello, World!"
-ports: netstat -an | grep :80
-```
 
-Each line contains:
-1. Snippet name (no spaces recommended)
-2. First colon (`:`) as separator
-3. Command to execute (can contain additional colons)
+- `name` is trimmed before use and must be unique per file.
+- `command` accepts either a string or a list of strings; lists are joined with newlines before execution.
+- `description` is optional and can be a string or list of strings (joined with spaces).
 
-Empty lines are ignored. Comment lines starting with `#` are skipped unless they sit directly above a snippet, in which case they are concatenated and displayed as that snippet's description.
+Additional fields are ignored for now but preserved in case the file is edited by hand.
 
 ## Data Storage
 
-- Snippet sources list is stored at `($nu.data-dir | path join "amasia-data" "snip" "snip.json")`. Run `echo ($nu.data-dir | path join "amasia-data" "snip" "snip.json")` to see the absolute path on your system.
-- A default snippet pack lives at `($nu.data-dir | path join "amasia-data" "snip" "default.snpx")`. Feel free to edit or extend it; Amasia will recreate the file if it goes missing.
+- Snippet sources list is stored at `($nu.data-dir | path join "amasia-data" "snip" "sources.nuon")`. Run `echo ($nu.data-dir | path join "amasia-data" "snip" "sources.nuon")` to see the absolute path on your system.
+- A default snippet pack lives at `($nu.data-dir | path join "amasia-data" "snip" "snippets.nuon")`. Feel free to edit or extend it; Amasia will recreate the file if it goes missing.
 - The list is automatically loaded on module import and saved when modified.
 - Changes are synchronized across different terminal sessions.
 

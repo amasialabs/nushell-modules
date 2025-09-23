@@ -2,10 +2,10 @@
 
 export const data_root_dir = "amasia-data"
 export const snip_subdir = "snip"
-export const snip_config_name = "snip.json"
-export const default_snip_file_name = "default.snpx"
+export const snip_config_name = "sources.nuon"
+export const default_snip_file_name = "snippets.nuon"
 
-const default_snip_template = "# Default Amasia snippets\n# Quick greeting snippet\nhello-world: echo 'Hello, world!'\n"
+const default_snip_template = "[\n  {\n    name: \"hello-world\",\n    description: \"Quick greeting snippet\",\n    command: [\n      \"echo 'Hello, world!'\"\n    ]\n  }\n]\n"
 
 # Internal: deterministic id from path (md5 first 8 chars)
 export def snip-id-from-path [p: string] {
@@ -46,10 +46,31 @@ export def --env reload-snip-sources [] {
   let default_entry = { id: (snip-id-from-path $default_path), path: $default_path }
 
   let sources = if ($config_file | path exists) {
-    try {
-      open $config_file
+    let raw = (try {
+      open $config_file --raw
     } catch {
+      let err_msg = (try { $in.msg } catch { "" })
+      let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+      error make { msg: $"Failed to read snip sources from ($config_file).$suffix" }
+    })
+
+    if ($raw | str trim | is-empty) {
       []
+    } else {
+      let parsed = (try {
+        $raw | from nuon
+      } catch {
+        let err_msg = (try { $in.msg } catch { "" })
+        let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+        error make { msg: $"Failed to parse snip sources from ($config_file) as nuon.$suffix" }
+      })
+
+      let parsed_type = ($parsed | describe)
+      if ($parsed_type | str starts-with "table<") == false {
+        error make { msg: $"Snip sources file ($config_file) must contain a list of records." }
+      }
+
+      $parsed
     }
   } else {
     []
@@ -75,7 +96,9 @@ export def save-snip-sources [] {
     $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append $default_entry)
   }
 
-  $env.AMASIA_SNIP_SOURCES | to json | save -f $config_file
+  $env.AMASIA_SNIP_SOURCES
+  | to nuon --indent 2
+  | save -f --raw $config_file
 }
 
 export def snip-config-path [] {
