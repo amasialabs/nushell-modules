@@ -107,6 +107,8 @@ export def --env "source add" [
   let id = (snip-id-from-path $p)
   $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append { id: $id, path: $p, is_default: false })
   save-snip-sources
+
+  print $"Created snip source '($id)' at '($p)'."
 }
 
 # Remove a file from AMASIA_SNIP_SOURCES by id or --path
