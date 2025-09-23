@@ -1,11 +1,11 @@
 # amasia/snip/mod.nu - snip module
 
 # Export storage helpers
-use storage.nu [reload-snip-sources]
+use storage.nu [list-sources]
 
 # Export file management commands
 use files.nu
-export use files.nu ["source add" "source rm" "source remove" "source ls" "source default" "source new"]
+export use files.nu ["source rm" "source ls" "source new"]
 
 # Export snippet runner commands
 use runner.nu
@@ -15,7 +15,7 @@ export use runner.nu ["ls" "search" "run" "show" "paste"]
 use editor.nu
 export use editor.nu ["new" "remove"]
 
-# Parse target argument and optional --source-id flag
+# Parse target argument and optional --source flag
 def parse-target-args [args: list<string>] {
   if ($args | is-empty) {
     error make { msg: "Target argument is required." }
@@ -23,7 +23,7 @@ def parse-target-args [args: list<string>] {
 
   let target = ($args | first)
   let rest = ($args | skip 1)
-  mut source_id = ""
+  mut source = ""
   mut idx = 0
 
   loop {
@@ -33,11 +33,11 @@ def parse-target-args [args: list<string>] {
 
     let token = ($rest | get $idx)
 
-    if ($token == "--source-id") {
+    if ($token == "--source") {
       if ($idx + 1) >= ($rest | length) {
-        error make { msg: "--source-id requires a value." }
+        error make { msg: "--source requires a value." }
       }
-      $source_id = ($rest | get ($idx + 1))
+      $source = ($rest | get ($idx + 1))
       $idx = $idx + 2
       continue
     }
@@ -45,7 +45,7 @@ def parse-target-args [args: list<string>] {
     error make { msg: $"Unknown argument ($token)." }
   }
 
-  { target: $target, source_id: $source_id }
+  { target: $target, source: $source }
 }
 
 # Parse paste arguments including clipboard flags
@@ -56,7 +56,7 @@ def parse-paste-args [args: list<string>] {
 
   let target = ($args | first)
   let rest = ($args | skip 1)
-  mut source_id = ""
+  mut source = ""
   mut clipboard = false
   mut both = false
   mut idx = 0
@@ -68,11 +68,11 @@ def parse-paste-args [args: list<string>] {
 
     let token = ($rest | get $idx)
 
-    if ($token == "--source-id") {
+    if ($token == "--source") {
       if ($idx + 1) >= ($rest | length) {
-        error make { msg: "--source-id requires a value." }
+        error make { msg: "--source requires a value." }
       }
-      $source_id = ($rest | get ($idx + 1))
+      $source = ($rest | get ($idx + 1))
       $idx = $idx + 2
       continue
     }
@@ -96,7 +96,7 @@ def parse-paste-args [args: list<string>] {
     error make { msg: "Use either --clipboard/-c or --both/-b, not both." }
   }
 
-  { target: $target, source_id: $source_id, clipboard: $clipboard, both: $both }
+  { target: $target, source: $source, clipboard: $clipboard, both: $both }
 }
 
 
@@ -118,21 +118,21 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
     search $query
   } else if ($cmd == "show") {
     let parsed = (parse-target-args $rest)
-    if ($parsed.source_id | is-empty) {
+    if ($parsed.source | is-empty) {
       show $parsed.target
     } else {
-      show $parsed.target --source-id $parsed.source_id
+      show $parsed.target --source $parsed.source
     }
   } else if ($cmd == "run") {
     let parsed = (parse-target-args $rest)
-    if ($parsed.source_id | is-empty) {
+    if ($parsed.source | is-empty) {
       run $parsed.target
     } else {
-      run $parsed.target --source-id $parsed.source_id
+      run $parsed.target --source $parsed.source
     }
   } else if ($cmd == "paste") {
     let parsed = (parse-paste-args $rest)
-    if ($parsed.source_id | is-empty) {
+    if ($parsed.source | is-empty) {
       if ($parsed.both) {
         paste $parsed.target --both
       } else if ($parsed.clipboard) {
@@ -142,22 +142,21 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
       }
     } else {
       if ($parsed.both) {
-        paste $parsed.target --source-id $parsed.source_id --both
+        paste $parsed.target --source $parsed.source --both
       } else if ($parsed.clipboard) {
-        paste $parsed.target --source-id $parsed.source_id --clipboard
+        paste $parsed.target --source $parsed.source --clipboard
       } else {
-        paste $parsed.target --source-id $parsed.source_id
+        paste $parsed.target --source $parsed.source
       }
     }
   } else if ($cmd == "source") {
     # If called as just `snip source`, show list
     if ($rest | is-empty) {
-      reload-snip-sources
-      $env.AMASIA_SNIP_SOURCES
-      | select is_default id path
-      | rename default id path
+      list-sources
+      | select is_default name
+      | rename default source
     } else {
-      error make { msg: "Invoke subcommands directly: snip 'source ls|add|rm|remove|default|new' ..." }
+      error make { msg: "Invoke subcommands directly: snip 'source ls|rm|new' ..." }
     }
   } else {
     error make { msg: $"Unknown snip subcommand '($cmd)'." }
@@ -169,7 +168,7 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 # Subcommands:
 #   ls            List every snippet aggregated from all sources.
 #   search <term> Search snippet names using a case-insensitive substring match.
-#   show <name>   Display snippet details, optionally filtered by --source-id.
+#   show <name>   Display snippet details, optionally filtered by --source.
 #   run <name>    Execute the snippet in a fresh Nushell process.
 #   new           Create a snippet in the default or selected source file.
 #   paste <name>  Stage the snippet in the REPL buffer and/or clipboard.
@@ -177,7 +176,7 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #
 # Examples:
 #   snip ls
-#   snip run deploy --source-id 57e8a148
+#   snip run deploy --source 57e8a148
 #   snip paste demo --both
 export def --env main [
   subcommand: string = "ls",
@@ -188,18 +187,7 @@ export def --env main [
 
 # Initialize environment on module load
 export-env {
-  # Keep snip sources as a list of records: [{id, path}]
-  # Try to load from persistent storage
-  reload-snip-sources
-
-  if ($env | columns | any {|c| $c == "AMASIA_SNIP_SOURCES"}) {
-    let v = $env.AMASIA_SNIP_SOURCES
-    if ($v | describe | str contains "list<record") {
-      $env.AMASIA_SNIPPET_SOURCES = $v
-    } else {
-      $env.AMASIA_SNIPPET_SOURCES = []
-    }
-  } else {
-    $env.AMASIA_SNIPPET_SOURCES = []
-  }
+  # Sources are now stored persistently, no env variable needed
+  # Just ensure the storage is initialized
+  list-sources | ignore
 }

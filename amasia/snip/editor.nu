@@ -1,6 +1,6 @@
 # amasia/snip/editor.nu - snippet authoring commands
 
-use storage.nu [reload-snip-sources save-snip-sources]
+use storage.nu [list-sources save-snip-sources snip-source-path]
 
 def nuon-string [s: string] {
   # Use to nuon for proper escaping, then strip list brackets
@@ -58,7 +58,7 @@ def format-snippets-nuon [entries: list<record>] {
 export def --env "new" [
   --name: string,
   --commands: list<string>,
-  --source-id: string = "",
+  --source: string = "",
   --description: string = ""
 ] {
   let trimmed_name = ($name | into string | str trim)
@@ -74,28 +74,39 @@ export def --env "new" [
 
   let trimmed_description = ($description | into string | str trim)
 
-  reload-snip-sources
-  let sources = $env.AMASIA_SNIP_SOURCES
+  let sources = (list-sources)
 
   if (($sources | length) == 0) {
     error make { msg: "No snippet sources are registered." }
   }
 
-  let target = if ($source_id | str trim | str length) > 0 {
-    let matches = ($sources | where id == $source_id)
+  let target = if ($source | str trim | str length) > 0 {
+    let matches = ($sources | where name == $source)
     if (($matches | length) == 0) {
-      error make { msg: $"Snippet source '($source_id)' not found." }
+      error make { msg: $"Snippet source '($source)' not found." }
     }
     $matches | first
   } else {
+    # Always use default source when no source is specified
     let defaults = ($sources | where is_default)
     if (($defaults | length) == 0) {
-      error make { msg: "No default snippet source is configured. Use 'snip source default' first." }
+      # If default doesn't exist, create it
+      let default_path = (snip-source-path "default")
+      if not ($default_path | path exists) {
+        "[]
+" | save -f --raw $default_path
+      }
+      # Return a default source record
+      {
+        name: "default",
+        is_default: true
+      }
+    } else {
+      $defaults | first
     }
-    $defaults | first
   }
 
-  let target_path = ($target.path | path expand)
+  let target_path = (snip-source-path $target.name)
   if not ($target_path | path exists) {
     let parent = ($target_path | path dirname)
     if (not ($parent | path exists)) {
@@ -149,48 +160,47 @@ export def --env "new" [
   (format-snippets-nuon $entries)
   | save -f --raw $target_path
 
-  reload-snip-sources
-  print $"Added snippet '($trimmed_name)' to source '($target.id)'"
+  print $"Added snippet '($trimmed_name)' to source '($target.name)'"
 }
 
-# Remove a snippet by name or index; optional --source-id when names collide
+# Remove a snippet by name or index; optional --source when names collide
 export def --env "remove" [
   target: string,
-  --source-id: string = ""
+  --source: string = ""
 ] {
   let trimmed = ($target | into string | str trim)
   if (($trimmed | str length) == 0) {
     error make { msg: "Target must not be empty" }
   }
 
-  # Load all snippets to resolve target and source path
-  reload-snip-sources
-  let srcs = $env.AMASIA_SNIP_SOURCES
+  # Load all snippets to resolve target and source
+  let srcs = (list-sources)
   let all = (
     $srcs
     | each {|source|
-        if ($source.path | path exists) {
-          let raw = (try { open $source.path --raw } catch { let err_msg = (try { $in.msg } catch { "" }); let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }; error make { msg: $"Failed to read snip source ($source.path).$suffix" } })
+        let source_path = (snip-source-path $source.name)
+        if ($source_path | path exists) {
+          let raw = (try { open $source_path --raw } catch { let err_msg = (try { $in.msg } catch { "" }); let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }; error make { msg: $"Failed to read snip source ($source_path).$suffix" } })
           if ($raw | str trim | is-empty) {
             []
           } else {
-            let parsed = (try { $raw | from nuon } catch { let err_msg = (try { $in.msg } catch { "" }); let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }; error make { msg: $"Failed to parse snip source ($source.path) as nuon.$suffix" } })
+            let parsed = (try { $raw | from nuon } catch { let err_msg = (try { $in.msg } catch { "" }); let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }; error make { msg: $"Failed to parse snip source ($source_path) as nuon.$suffix" } })
             let pdesc = ($parsed | describe)
             let is_table = ($pdesc | str starts-with "table<")
             let is_list = ($pdesc | str starts-with "list<")
             if (not $is_table and not $is_list) {
-              error make { msg: $"Snip source ($source.path) must contain a list of records." }
+              error make { msg: $"Snip source ($source_path) must contain a list of records." }
             }
             $parsed
             | each {|snip|
                 let cols = ($snip | columns)
                 if not ($cols | any {|c| $c == "name" }) {
-                  error make { msg: $"A record in ($source.path) is missing the 'name' field." }
+                  error make { msg: $"A record in ($source_path) is missing the 'name' field." }
                 }
                 if not ($cols | any {|c| $c == "commands" }) {
-                  error make { msg: $"A record in ($source.path) is missing the 'commands' field." }
+                  error make { msg: $"A record in ($source_path) is missing the 'commands' field." }
                 }
-                { name: ($snip.name | into string | str trim), source_id: $source.id, source_path: $source.path }
+                { name: ($snip.name | into string | str trim), source_name: $source.name, source_path: $source_path }
             }
           }
         } else { [] }
@@ -214,10 +224,10 @@ export def --env "remove" [
     if (($candidates | length) == 0) {
       error make { msg: $"Snippet '($trimmed)' not found" }
     } else if (($candidates | length) > 1) {
-      if ($source_id | str length) > 0 {
-        let filtered = ($candidates | where source_id == $source_id)
+      if ($source | str length) > 0 {
+        let filtered = ($candidates | where source_name == $source)
         if (($filtered | length) != 1) {
-          error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source-id to disambiguate." }
+          error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source to disambiguate." }
         }
         ($filtered | first)
       } else {
@@ -228,7 +238,7 @@ export def --env "remove" [
     }
   }
 
-  let src_path = ($match.source_path | path expand)
+  let src_path = $match.source_path
   if not ($src_path | path exists) {
     error make { msg: $"Snippet source file not found: ($src_path)" }
   }
@@ -256,5 +266,5 @@ export def --env "remove" [
   (format-snippets-nuon $remaining)
   | save -f --raw $src_path
 
-  print $"Removed snippet '($match.name)' from source '($match.source_id)'"
+  print $"Removed snippet '($match.name)' from source '($match.source_name)"
 }

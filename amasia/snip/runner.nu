@@ -1,6 +1,6 @@
 # Snip execution and display logic
 
-use storage.nu [reload-snip-sources]
+use storage.nu [list-sources snip-source-path]
 
 # Try a single clipboard command and return status
 def try-clipboard-command [text: string, command: string, desc: string, args: list<string> = []] {
@@ -77,9 +77,7 @@ def copy-to-clipboard [text: string] {
 
 # Load all snip from all source files
 def load-all-snip [] {
-  reload-snip-sources
-
-  let sources = $env.AMASIA_SNIP_SOURCES
+  let sources = (list-sources)
 
   if ($sources | is-empty) {
     return []
@@ -87,13 +85,14 @@ def load-all-snip [] {
 
   $sources
   | each {|source|
-    if ($source.path | path exists) {
+    let source_path = (snip-source-path $source.name)
+    if ($source_path | path exists) {
       let raw = (try {
-        open $source.path --raw
+        open $source_path --raw
       } catch {
         let err_msg = (try { $in.msg } catch { "" })
         let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
-        error make { msg: $"Failed to read snip source ($source.path).$suffix" }
+        error make { msg: $"Failed to read snip source ($source_path).$suffix" }
       })
 
       if ($raw | str trim | is-empty) {
@@ -104,14 +103,14 @@ def load-all-snip [] {
         } catch {
           let err_msg = (try { $in.msg } catch { "" })
           let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
-          error make { msg: $"Failed to parse snip source ($source.path) as nuon.$suffix" }
+          error make { msg: $"Failed to parse snip source ($source_path) as nuon.$suffix" }
         })
 
         let parsed_type = ($parsed | describe)
         let is_table = ($parsed_type | str starts-with "table<")
         let is_list = ($parsed_type | str starts-with "list<")
         if (not $is_table and not $is_list) {
-          error make { msg: $"Snip source ($source.path) must contain a list of records." }
+          error make { msg: $"Snip source ($source_path) must contain a list of records." }
         }
 
         $parsed
@@ -122,22 +121,22 @@ def load-all-snip [] {
 
           let snip_type = ($snip | describe)
           if ($snip_type | str starts-with "record<") == false {
-            error make { msg: $"Entry ($idx) in ($source.path) must be a record." }
+            error make { msg: $"Entry ($idx) in ($source_path) must be a record." }
           }
 
           let has_name = ($snip | columns | any {|c| $c == "name" })
           if $has_name == false {
-            error make { msg: $"Entry ($idx) in ($source.path) is missing the 'name' field." }
+            error make { msg: $"Entry ($idx) in ($source_path) is missing the 'name' field." }
           }
 
           let has_commands = ($snip | columns | any {|c| $c == "commands" })
           if $has_commands == false {
-            error make { msg: $"Entry ($idx) in ($source.path) is missing the 'commands' field." }
+            error make { msg: $"Entry ($idx) in ($source_path) is missing the 'commands' field." }
           }
 
           let name = ($snip.name | into string | str trim)
           if ($name | str length) == 0 {
-            error make { msg: $"Entry ($idx) in ($source.path) has an empty 'name' field." }
+            error make { msg: $"Entry ($idx) in ($source_path) has an empty 'name' field." }
           }
 
           let raw_commands = $snip.commands
@@ -146,13 +145,13 @@ def load-all-snip [] {
           let commands_list = if ($commands_desc | str starts-with "list<string") {
             $raw_commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 }
           } else {
-            error make { msg: $"Entry '($name)' in ($source.path) must use 'commands' as list<string>." }
+            error make { msg: $"Entry '($name)' in ($source_path) must use 'commands' as list<string>." }
           }
 
           let command_text = ($commands_list | str join "\n")
 
           if ($command_text | str length) == 0 {
-            error make { msg: $"Entry '($name)' in ($source.path) has empty 'commands'." }
+            error make { msg: $"Entry '($name)' in ($source_path) has empty 'commands'." }
           }
 
           let description = if ($snip | columns | any {|c| $c == "description" }) {
@@ -164,7 +163,7 @@ def load-all-snip [] {
             } else if ($desc_desc | str starts-with "list<string") {
               $desc_val | str join " "
             } else {
-              error make { msg: $"Entry '($name)' in ($source.path) must use 'description' as string or list<string>." }
+              error make { msg: $"Entry '($name)' in ($source_path) must use 'description' as string or list<string>." }
             }
           } else {
             ""
@@ -175,8 +174,7 @@ def load-all-snip [] {
             command: $command_text,
             commands: $commands_list,
             description: $description,
-            source_id: $source.id,
-            source_path: $source.path
+            source_name: $source.name
           }
         }
       }
@@ -189,7 +187,7 @@ def load-all-snip [] {
 
 # List all available snippets
 export def --env "ls" [] {
-  load-all-snip | select name command source_id
+  load-all-snip | select name command source_name
 }
 
 # Search snippet by name
@@ -204,7 +202,7 @@ export def --env "search" [
 # Get a specific snippet by name or row index; optional disambiguation by source id
 def get [
   target: string,           # snippet name or numeric row index from `ls`
-  --source-id: string = ""  # disambiguate when multiple names exist
+  --source: string = ""  # disambiguate when multiple names exist
 ] {
   let snip = load-all-snip
 
@@ -231,12 +229,12 @@ def get [
   if ($matches | length) == 0 {
     error make { msg: $"Snippet '($name)' not found" }
   } else if ($matches | length) > 1 {
-    if ($source_id != "") {
-      let filtered = ($matches | where source_id == $source_id)
+    if ($source != "") {
+      let filtered = ($matches | where source_name == $source)
       if (($filtered | length) == 1) {
         $filtered | first
       } else {
-        error make { msg: $"Multiple snippets found with name '($name)'. Use --source-id to disambiguate." }
+        error make { msg: $"Multiple snippets found with name '($name)'. Use --source to disambiguate." }
       }
     } else {
       error make { msg: $"Multiple snippets found with name '($name)'. Use --source-id to disambiguate." }
@@ -249,7 +247,7 @@ def get [
 # Paste snippet command into the REPL buffer and/or clipboard
 export def --env "paste" [
   target: string,            # snippet name or row index
-  --source-id: string = "",  # disambiguate when names collide
+  --source: string = "",  # disambiguate when names collide
   --clipboard(-c),           # copy only to clipboard
   --both(-b)                 # send to command line and clipboard
 ] {
@@ -257,7 +255,7 @@ export def --env "paste" [
     error make { msg: "Use either --clipboard (-c) or --both (-b), not both." }
   }
 
-  let snip = (get $target --source-id $source_id)
+  let snip = (get $target --source $source)
   let text = $snip.command
 
   let do_clipboard = ($clipboard or $both)
@@ -299,9 +297,9 @@ export def --env "paste" [
 # Execute a snippet by name
 export def "run" [
   target: string,            # snip name or row index
-  --source-id: string = ""   # disambiguate when names collide
+  --source: string = ""   # disambiguate when names collide
 ] {
-  let snip = (get $target --source-id $source_id)
+  let snip = (get $target --source $source)
   if (not ($snip | columns | any {|c| $c == "commands" })) {
     # Fallback: execute joined text
     nu -c $snip.command
@@ -315,9 +313,9 @@ export def "run" [
 # Show snippet details
 export def "show" [
   target: string,            # snip name or row index
-  --source-id: string = ""   # disambiguate when names collide
+  --source: string = ""   # disambiguate when names collide
 ] {
-  let snip = (get $target --source-id $source_id)
+  let snip = (get $target --source $source)
   let desc = ($snip.description? | default "")
 
   mut rows = []
@@ -328,8 +326,7 @@ export def "show" [
   }
 
   $rows = ($rows | append { field: "Command", value: $snip.command })
-  $rows = ($rows | append { field: "Source", value: $snip.source_path })
-  $rows = ($rows | append { field: "Source Id", value: ($snip.source_id | into string) })
+  $rows = ($rows | append { field: "Source", value: $snip.source_name })
 
   $rows
 }

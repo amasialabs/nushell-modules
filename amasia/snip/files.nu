@@ -1,6 +1,6 @@
 # amasia/snip/files.nu - file management commands
 
-use storage.nu [snip-id-from-path reload-snip-sources save-snip-sources]
+use storage.nu [list-sources save-snip-sources snip-source-path snip-default-name]
 
 # Validate that a snippets file is in our expected shape and collect duplicate names
 def validate-snip-file [p: string] {
@@ -75,207 +75,55 @@ def validate-snip-file [p: string] {
   { valid: true, message: "", duplicates: $duplicates }
 }
 
-export def --env "source add" [
-  file: string
-] {
-  reload-snip-sources
-  let p = ($file | path expand)
-
-  if not ($p | path exists) {
-    error make { msg: $"File not found: ($p)" }
-  }
-  if (($p | path type) != "file") {
-    error make { msg: $"Not a file: ($p)" }
-  }
-
-  if ($env.AMASIA_SNIP_SOURCES | any {|x| $x.path == $p }) {
-    let id = (snip-id-from-path $p)
-    print $"Source already added: '($p)' (id: ($id))"
-    return
-  }
-
-  # Validate file shape and report duplicates inside the file
-  let validation = (validate-snip-file $p)
-  if (not $validation.valid) {
-    error make { msg: $validation.message }
-  }
-  if (($validation.duplicates | length) > 0) {
-    let dup = ($validation.duplicates | str join ", ")
-    print $"Warning: duplicate snippet names in '($p)': ($dup)"
-  }
-
-  let id = (snip-id-from-path $p)
-  $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append { id: $id, path: $p, is_default: false })
-  save-snip-sources
-
-  print $"Created snip source '($id)' at '($p)'."
-}
-
-# Remove a file from AMASIA_SNIP_SOURCES by id or --path
+# Remove a source file by name
 export def --env "source rm" [
-  pos_id?: string         # record id (positional, optional)
-  --id: string = ""       # record id (flag, optional)
-  --path: string = ""     # full path, optional
+  name: string         # source name to remove
 ] {
-  reload-snip-sources
-  # Use positional id if provided, otherwise fall back to --id flag
-  let final_id = if ($pos_id != null) { $pos_id } else { $id }
-
-  let has_id = ($final_id != "" and $final_id != null)
-  let has_path = (not ($path | is-empty))
-
-  if (not $has_id and not $has_path) {
-    error make { msg: "Provide id or --path" }
-  }
-  if ($has_id and $has_path) {
-    error make { msg: "Provide only one: id or --path" }
+  if ($name == "default") {
+    error make { msg: "Cannot remove the default source" }
   }
 
-  let target_id = if $has_id { $final_id } else { (snip-id-from-path ($path | path expand)) }
-  let next = ($env.AMASIA_SNIP_SOURCES | where {|r| $r.id != $target_id })
-
-  if (($next | length) == ($env.AMASIA_SNIP_SOURCES | length)) {
-    return  # nothing removed
+  let source_path = (snip-source-path $name)
+  if not ($source_path | path exists) {
+    error make { msg: $"Source '($name)' not found" }
   }
 
-  $env.AMASIA_SNIP_SOURCES = $next
-  save-snip-sources
+  rm $source_path
+  print $"Removed source '($name)'"
 }
 
-# Alias: remove a file from AMASIA_SNIP_SOURCES by id or --path
-export def --env "source remove" [
-  pos_id?: string,
-  --id: string = "",
-  --path: string = ""
-] {
-  reload-snip-sources
-  # Use positional id if provided, otherwise fall back to --id flag
-  let final_id = if ($pos_id != null) { $pos_id } else { $id }
-
-  let has_id = ($final_id != "" and $final_id != null)
-  let has_path = (not ($path | is-empty))
-
-  if (not $has_id and not $has_path) {
-    error make { msg: "Provide id or --path" }
-  }
-  if ($has_id and $has_path) {
-    error make { msg: "Provide only one: id or --path" }
-  }
-
-  let target_id = if $has_id { $final_id } else { (snip-id-from-path ($path | path expand)) }
-  let next = ($env.AMASIA_SNIP_SOURCES | where {|r| $r.id != $target_id })
-
-  if (($next | length) == ($env.AMASIA_SNIP_SOURCES | length)) {
-    return  # nothing removed
-  }
-
-  $env.AMASIA_SNIP_SOURCES = $next
-  save-snip-sources
-}
-
-# Create a new snippets file (empty list) at a given path or name in current directory and add it as a source
+# Create a new snippets file (empty list) with a given name
 export def --env "source new" [
-  name_or_path: string
+  name: string
 ] {
-  reload-snip-sources
+  let stem = ($name | into string | str trim)
+  if ($stem | str length) == 0 {
+    error make { msg: "Name must not be empty" }
+  }
+  if ($stem == "default") {
+    error make { msg: "'default' source already exists" }
+  }
 
-  let s = ($name_or_path | into string)
-  let has_sep = (($s | str contains "/") or ($s | str contains "\\"))
-  let base_path = if $has_sep { ($s | path expand) } else { (pwd | path join $s) }
-  let ext = ((($base_path | path parse).extension?) | default "")
-  let target_path = if (($ext | str downcase) == "nuon") { $base_path } else { $"($base_path).nuon" }
+  let target_path = (snip-source-path $stem)
+  if ($target_path | path exists) {
+    error make { msg: $"Source '($stem)' already exists at ($target_path)" }
+  }
 
   let parent = ($target_path | path dirname)
   if not ($parent | path exists) {
     mkdir $parent
   }
 
-  if (($target_path | path exists) and (($target_path | path type) == "file")) {
-    error make { msg: $"File already exists: ($target_path)" }
-  }
-
   # Write empty relaxed NuON list
-  "[]\n" | save -f --raw $target_path
+  "[]
+" | save -f --raw $target_path
 
-  # Add as source (inline logic from source add)
-  let p = ($target_path | path expand)
-  if ($env.AMASIA_SNIP_SOURCES | any {|x| $x.path == $p }) {
-    let id = (snip-id-from-path $p)
-    print $"Source already added: '($p)' (id: ($id))"
-    return
-  }
-
-  let validation = (validate-snip-file $p)
-  if (not $validation.valid) {
-    error make { msg: $validation.message }
-  }
-  if (($validation.duplicates | length) > 0) {
-    let dup = ($validation.duplicates | str join ", ")
-    print $"Warning: duplicate snippet names in '($p)': ($dup)"
-  }
-
-  let id = (snip-id-from-path $p)
-  $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append { id: $id, path: $p, is_default: false })
-  save-snip-sources
-  print $"Added snip source '($id)' at '($p)'."
-}
-
-# Set the default snip source
-export def --env "source default" [
-  pos_id?: string,
-  --id: string = "",
-  --path: string = ""
-] {
-  reload-snip-sources
-
-  let final_id = if ($pos_id != null) { $pos_id } else { $id }
-  let has_id = ($final_id != null and $final_id != "")
-  let has_path = (not ($path | is-empty))
-
-  if (not $has_id and not $has_path) {
-    let defaults = ($env.AMASIA_SNIP_SOURCES | where is_default)
-    if (($defaults | length) == 0) {
-      print "No default snip source is configured."
-    } else {
-      let d = ($defaults | first)
-      print $"Default snip source: '($d.id)' at '($d.path)'"
-    }
-    return
-  }
-
-  if ($has_id and $has_path) {
-    error make { msg: "Provide only one selector: id or --path" }
-  }
-
-  let target_id = if $has_path {
-    snip-id-from-path ($path | path expand)
-  } else {
-    $final_id
-  }
-
-  let sources = $env.AMASIA_SNIP_SOURCES
-  let matches = ($sources | where id == $target_id)
-
-  if (($matches | length) == 0) {
-    error make { msg: $"Snip source '($target_id)' not found." }
-  }
-
-  $env.AMASIA_SNIP_SOURCES = ($sources | each {|src|
-    if ($src.id == $target_id) {
-      $src | upsert is_default true
-    } else {
-      $src | upsert is_default false
-    }
-  })
-
-  save-snip-sources
-  print $"Default snip source set to '($target_id)'."
+  print $"Created snip source '($stem)' at '($target_path)'."
 }
 
 # List configured snip sources
 export def --env "source ls" [] {
-  reload-snip-sources
-  $env.AMASIA_SNIP_SOURCES
-  | select is_default id path
-  | rename default id path
+  list-sources
+  | select is_default name
+  | rename default source
 }
