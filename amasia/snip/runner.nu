@@ -143,11 +143,13 @@ def load-all-snip [] {
           let raw_commands = $snip.commands
           let commands_desc = ($raw_commands | describe)
 
-          let command_text = if ($commands_desc | str starts-with "list<string") {
-            $raw_commands | str join "\n"
+          let commands_list = if ($commands_desc | str starts-with "list<string") {
+            $raw_commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 }
           } else {
             error make { msg: $"Entry '($name)' in ($source.path) must use 'commands' as list<string>." }
           }
+
+          let command_text = ($commands_list | str join "\n")
 
           if ($command_text | str length) == 0 {
             error make { msg: $"Entry '($name)' in ($source.path) has empty 'commands'." }
@@ -171,6 +173,7 @@ def load-all-snip [] {
           {
             name: $name,
             command: $command_text,
+            commands: $commands_list,
             description: $description,
             source_id: $source.id,
             source_path: $source.path
@@ -299,7 +302,14 @@ export def "run" [
   --source-id: string = ""   # disambiguate when names collide
 ] {
   let snip = (get $target --source-id $source_id)
-  nu -c $snip.command
+  if (not ($snip | columns | any {|c| $c == "commands" })) {
+    # Fallback: execute joined text
+    nu -c $snip.command
+  } else {
+    for $cmd in $snip.commands {
+      nu -c $cmd
+    }
+  }
 }
 
 # Show snippet details
