@@ -128,9 +128,9 @@ def load-all-snip [] {
             error make { msg: $"Entry ($idx) in ($source.path) is missing the 'name' field." }
           }
 
-          let has_command = ($snip | columns | any {|c| $c == "command" })
-          if $has_command == false {
-            error make { msg: $"Entry ($idx) in ($source.path) is missing the 'command' field." }
+          let has_commands = ($snip | columns | any {|c| $c == "commands" })
+          if $has_commands == false {
+            error make { msg: $"Entry ($idx) in ($source.path) is missing the 'commands' field." }
           }
 
           let name = ($snip.name | into string | str trim)
@@ -138,19 +138,17 @@ def load-all-snip [] {
             error make { msg: $"Entry ($idx) in ($source.path) has an empty 'name' field." }
           }
 
-          let raw_command = $snip.command
-          let command_desc = ($raw_command | describe)
+          let raw_commands = $snip.commands
+          let commands_desc = ($raw_commands | describe)
 
-          let command_text = if $command_desc == "string" {
-            $raw_command
-          } else if ($command_desc | str starts-with "list<string") {
-            $raw_command | str join "\n"
+          let command_text = if ($commands_desc | str starts-with "list<string") {
+            $raw_commands | str join "\n"
           } else {
-            error make { msg: $"Entry '($name)' in ($source.path) must use 'command' as string or list<string>." }
+            error make { msg: $"Entry '($name)' in ($source.path) must use 'commands' as list<string>." }
           }
 
           if ($command_text | str length) == 0 {
-            error make { msg: $"Entry '($name)' in ($source.path) has an empty command." }
+            error make { msg: $"Entry '($name)' in ($source.path) has empty 'commands'." }
           }
 
           let description = if ($snip | columns | any {|c| $c == "description" }) {

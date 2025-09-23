@@ -5,7 +5,7 @@ export const snip_subdir = "snip"
 export const snip_config_name = "sources.nuon"
 export const default_snip_file_name = "snippets.nuon"
 
-const default_snip_template = "[\n  {\n    name: \"hello-world\",\n    description: \"Quick greeting snippet\",\n    command: [\n      \"print 'Hello, world!'\"\n    ]\n  }\n]\n"
+const default_snip_template = "[\n  {\n    name: \"hello-world\",\n    description: \"Quick greeting snippet\",\n    commands: [\n      \"print 'Hello, world!'\"\n    ]\n  }\n]\n"
 
 # Internal: deterministic id from path (md5 first 8 chars)
 export def snip-id-from-path [p: string] {

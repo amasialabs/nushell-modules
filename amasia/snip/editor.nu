@@ -4,7 +4,7 @@ use storage.nu [reload-snip-sources save-snip-sources]
 
 export def --env "add" [
   --name: string,
-  --command: string,
+  --commands: list<string>,
   --source-id: string = "",
   --description: string = ""
 ] {
@@ -13,15 +13,10 @@ export def --env "add" [
     error make { msg: "--name must not be empty" }
   }
 
-  let normalized_command = ($command | into string | str replace --regex '\\r\\n' '\n')
-  if ($normalized_command | str length) == 0 {
-    error make { msg: "--command must not be empty" }
-  }
-
-  let command_value = if ($normalized_command | str contains "\n") {
-    $normalized_command | split row "\n"
-  } else {
-    $normalized_command
+  # Normalize commands: trim each item and drop empties
+  let normalized_commands = ($commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 })
+  if (($normalized_commands | length) == 0) {
+    error make { msg: "--commands requires at least one non-empty command" }
   }
 
   let trimmed_description = ($description | into string | str trim)
@@ -89,7 +84,7 @@ export def --env "add" [
     error make { msg: $"Snippet '($trimmed_name)' already exists in ($target_path)." }
   }
 
-  mut new_entry = { name: $trimmed_name, command: $command_value }
+  mut new_entry = { name: $trimmed_name, commands: $normalized_commands }
   if (($trimmed_description | str length) > 0) {
     $new_entry = ($new_entry | upsert description $trimmed_description)
   }

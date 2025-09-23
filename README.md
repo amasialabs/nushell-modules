@@ -57,7 +57,7 @@ Import with `use amasia/snip` to expose the following commands:
 - `snip search <term>` — Case-insensitive substring search over snippet names.
 - `snip show <name|index> [--source-id <id>]` — Inspect the snippet as a two-column table of fields and values.
 - `snip run <name|index> [--source-id <id>]` — Execute the snippet in a fresh Nushell process.
-- `snip add --name <value> --command <value> [--source-id <id>]` — Append a snippet to the default or selected source.
+- `snip add --name <value> --commands <cmd1> [<cmd2> ...] [--source-id <id>]` — Append a snippet with one or more commands to the default or selected source.
 - `snip insert <name|index> [flags]` — Drop the command into the current buffer and/or clipboard.
 
 All commands accept either a snippet name or the zero-based index returned by `snip ls`. Use `--source-id` when names collide across files.
@@ -100,35 +100,35 @@ snip insert 2 --both
 ### Authoring Snippets
 ```nu
 # Add a snippet to the default source
-snip add --name greet --command "echo 'Hello from Nu'"
+snip add --name greet --commands "echo 'Hello from Nu'"
 
-# Add a multi-line snippet to a specific source
-snip add --name deploy --command "git pull\nnpm run deploy" --source-id 57e8a148
+# Add a multi-command snippet to a specific source
+snip add --name deploy --commands "git pull" "npm run deploy" --source-id 57e8a148
 ```
 
 ## Snippet File Format
 
-Snippet files are written in NuON. Each file must evaluate to a list of records with at least a `name` and `command` field:
+Snippet files are written in NuON. Each file must evaluate to a list of records with at least a `name` and `commands` field:
 
 ```nuon
 [
   {
     name: "deploy",
     description: "Restart the web service",
-    command: [
+    commands: [
       "git pull",
       "npm run deploy"
     ]
   },
   {
     name: "hello-world",
-    command: "echo 'Hello, world!'"
+    commands: ["echo 'Hello, world!'"]
   }
 ]
 ```
 
 - `name` is trimmed before use and must be unique per file.
-- `command` accepts either a string or a list of strings; lists are joined with newlines before execution.
+- `commands` is a list of strings; they are joined with newlines before execution.
 - `description` is optional and can be a string or list of strings (joined with spaces).
 
 Additional fields are ignored for now but preserved in case the file is edited by hand.
