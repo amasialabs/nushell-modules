@@ -217,6 +217,7 @@ export def --env "source new" [
   let id = (snip-id-from-path $p)
   $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append { id: $id, path: $p, is_default: false })
   save-snip-sources
+  print $"Added snip source '($id)' at '($p)'."
 }
 
 # Set the default snip source
