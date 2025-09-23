@@ -230,7 +230,14 @@ export def --env "source default" [
   let has_path = (not ($path | is-empty))
 
   if (not $has_id and not $has_path) {
-    error make { msg: "Provide an id or --path" }
+    let defaults = ($env.AMASIA_SNIP_SOURCES | where is_default)
+    if (($defaults | length) == 0) {
+      print "No default snip source is configured."
+    } else {
+      let d = ($defaults | first)
+      print $"Default snip source: '($d.id)' at '($d.path)'"
+    }
+    return
   }
 
   if ($has_id and $has_path) {
