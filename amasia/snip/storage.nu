@@ -1,7 +1,9 @@
 # amasia/snip/storage.nu - storage functions
 
-export const data_root_dir = "amasia-data"
-export const snip_subdir = "snip"
+export const amasia_root_dirname = ".amasia"
+export const amasia_shell_dirname = "nushell"
+export const data_root_dirname = "data"
+export const snip_dirname = "snip"
 export const snip_config_name = "sources.nuon"
 export const default_snip_file_name = "snippets.nuon"
 
@@ -13,15 +15,14 @@ export def snip-id-from-path [p: string] {
 }
 
 def ensure-snip-paths [] {
-  let data_root = ($nu.data-dir | path join $data_root_dir)
-  if not ($data_root | path exists) {
-    mkdir $data_root
-  }
+  let base = ($nu.home-path | path join $amasia_root_dirname $amasia_shell_dirname)
+  if not ($base | path exists) { mkdir $base }
 
-  let snip_dir = ($data_root | path join $snip_subdir)
-  if not ($snip_dir | path exists) {
-    mkdir $snip_dir
-  }
+  let data_root = ($base | path join $data_root_dirname)
+  if not ($data_root | path exists) { mkdir $data_root }
+
+  let snip_dir = ($data_root | path join $snip_dirname)
+  if not ($snip_dir | path exists) { mkdir $snip_dir }
 
   let config_file = ($snip_dir | path join $snip_config_name)
   let default_file = ($snip_dir | path join $default_snip_file_name)

@@ -22,7 +22,7 @@ Run the installer (requires Nushell ≥0.85 and git):
 ```nu
 http get https://raw.githubusercontent.com/amasialabs/nushell-modules/main/install.nu | nu -c $in
 ```
-The script clones the modules into your Nushell config directory and ensures your config sources the generated Amasia block. After reloading your config, import the snippets module explicitly:
+The script installs modules under `$nu.home-path/.amasia/nushell/modules`, writes `$nu.home-path/.amasia/nushell/config.nu`, and ensures your Nushell config sources that file. It also adds the modules path to `$env.NU_LIB_DIRS`. After reloading your config, import the snippets module explicitly:
 ```nu
 use amasia/snip
 ```
@@ -139,10 +139,10 @@ Additional fields are ignored for now but preserved in case the file is edited b
 
 ## Data Storage
 
-- Snippet sources list is stored at `($nu.data-dir | path join "amasia-data" "snip" "sources.nuon")`. Run `echo ($nu.data-dir | path join "amasia-data" "snip" "sources.nuon")` to see the absolute path on your system.
-- A default snippet pack lives at `($nu.data-dir | path join "amasia-data" "snip" "snippets.nuon")`. Feel free to edit or extend it; Amasia will recreate the file if it goes missing.
-- The list is automatically loaded on module import and saved when modified.
-- Changes are synchronized across different terminal sessions.
+- Snippet data lives under `$nu.home-path/.amasia/nushell/data/snip`.
+- Sources list path: `($nu.home-path | path join ".amasia" "nushell" "data" "snip" "sources.nuon")`.
+- Default snippets pack: `($nu.home-path | path join ".amasia" "nushell" "data" "snip" "snippets.nuon")`.
+- The list is automatically loaded on module import and saved when modified; changes are synchronized across sessions.
 
 ## Future Plans
 

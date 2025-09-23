@@ -1,5 +1,6 @@
 const repo = "https://github.com/amasialabs/nushell-modules"
-const mods = ($nu.default-config-dir | path join "amasia-modules")
+const cfg_dir       = ($nu.home-path | path join ".amasia" "nushell")
+const mods          = ($cfg_dir | path join "modules")
 
 try { ^git --version | ignore } catch { error make { msg: "git not found in PATH" } }
 
@@ -21,7 +22,6 @@ if ([$mods ".git"] | path join | path exists) {
     ^git clone --quiet --depth 1 $repo $mods
 }
 
-const cfg_dir       = ($nu.home-path | path join ".amasia" "nushell")
 const cfg_file      = ($cfg_dir | path join "config.nu")
 const source_line   = $'source "($cfg_file)"'
 
@@ -29,7 +29,7 @@ if not ($cfg_dir | path exists) { mkdir $cfg_dir }
 
 const cfg_block = "
 # --- Amasia Nushell config ---
-let mods = ($nu.default-config-dir | path join 'amasia-modules')
+const mods = ($nu.home-path | path join '.amasia' 'nushell' 'modules')
 $env.NU_LIB_DIRS = ($env.NU_LIB_DIRS | default [] | append $mods | uniq)
 "
  
