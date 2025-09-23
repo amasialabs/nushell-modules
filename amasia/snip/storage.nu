@@ -158,7 +158,9 @@ export def --env reload-snip-sources [] {
       })
 
       let parsed_type = ($parsed | describe)
-      if ($parsed_type | str starts-with "table<") == false {
+      let is_table = ($parsed_type | str starts-with "table<")
+      let is_list_records = ($parsed_type | str starts-with "list<record<")
+      if (not $is_table and not $is_list_records) {
         error make { msg: $"Snip sources file ($config_file) must contain a list of records." }
       }
 
