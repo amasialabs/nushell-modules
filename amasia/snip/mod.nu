@@ -13,7 +13,7 @@ export use runner.nu ["ls" "search" "run" "show" "paste"]
 
 # Export snippet authoring commands
 use editor.nu
-export use editor.nu ["new" "remove"]
+export use editor.nu ["new" "rm"]
 
 # Parse target argument and optional --source flag
 def parse-target-args [args: list<string>] {
@@ -153,8 +153,8 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
     # If called as just `snip source`, show list
     if ($rest | is-empty) {
       list-sources
-      | select is_default name
-      | rename default source
+      | select name
+      | rename source
     } else {
       error make { msg: "Invoke subcommands directly: snip 'source ls|rm|new' ..." }
     }

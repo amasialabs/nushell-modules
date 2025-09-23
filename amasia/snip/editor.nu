@@ -164,7 +164,7 @@ export def --env "new" [
 }
 
 # Remove a snippet by name or index; optional --source when names collide
-export def --env "remove" [
+export def --env "rm" [
   target: string,
   --source: string = ""
 ] {

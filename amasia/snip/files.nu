@@ -124,6 +124,6 @@ export def --env "source new" [
 # List configured snip sources
 export def --env "source ls" [] {
   list-sources
-  | select is_default name
-  | rename default source
+  | select name
+  | rename source
 }
