@@ -72,8 +72,8 @@ export def --env "add" [
 
     let parsed_type = ($parsed | describe)
     let is_table = ($parsed_type | str starts-with "table<")
-    let is_list_records = ($parsed_type | str starts-with "list<record<")
-    if (not $is_table and not $is_list_records) {
+    let is_list = ($parsed_type | str starts-with "list<")
+    if (not $is_table and not $is_list) {
       error make { msg: $"Snippet file ($target_path) must contain a list of records." }
     }
 
