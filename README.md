@@ -22,7 +22,11 @@ Run the installer (requires Nushell ≥0.85 and git):
 ```nu
 http get https://raw.githubusercontent.com/amasialabs/nushell-modules/main/install.nu | nu -c $in
 ```
-The script clones the modules into your Nushell config directory and ensures your config sources the generated Amasia block. Follow the printed `source` command or restart Nushell to load the changes.
+The script clones the modules into your Nushell config directory and ensures your config sources the generated Amasia block. After reloading your config, import the snippets module explicitly:
+```nu
+use amasia/snip
+```
+If the installer prints a `source` command, run it first and then execute `use amasia/snip` in that session; restarting Nushell achieves the same result.
 
 ## Module Guide
 
