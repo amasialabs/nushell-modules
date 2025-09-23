@@ -9,7 +9,7 @@ export use files.nu ["source add" "source rm" "source remove" "source ls" "sourc
 
 # Export snippet runner commands
 use runner.nu
-export use runner.nu ["ls" "search" "run" "show" "insert"]
+export use runner.nu ["ls" "search" "run" "show" "paste"]
 
 # Export snippet authoring commands
 use editor.nu
@@ -48,8 +48,8 @@ def parse-target-args [args: list<string>] {
   { target: $target, source_id: $source_id }
 }
 
-# Parse insert arguments including clipboard flags
-def parse-insert-args [args: list<string>] {
+# Parse paste arguments including clipboard flags
+def parse-paste-args [args: list<string>] {
   if ($args | is-empty) {
     error make { msg: "Target argument is required." }
   }
@@ -130,29 +130,29 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
     } else {
       run $parsed.target --source-id $parsed.source_id
     }
-  } else if ($cmd == "insert") {
-    let parsed = (parse-insert-args $rest)
+  } else if ($cmd == "paste") {
+    let parsed = (parse-paste-args $rest)
     if ($parsed.source_id | is-empty) {
       if ($parsed.both) {
-        insert $parsed.target --both
+        paste $parsed.target --both
       } else if ($parsed.clipboard) {
-        insert $parsed.target --clipboard
+        paste $parsed.target --clipboard
       } else {
-        insert $parsed.target
+        paste $parsed.target
       }
     } else {
       if ($parsed.both) {
-        insert $parsed.target --source-id $parsed.source_id --both
+        paste $parsed.target --source-id $parsed.source_id --both
       } else if ($parsed.clipboard) {
-        insert $parsed.target --source-id $parsed.source_id --clipboard
+        paste $parsed.target --source-id $parsed.source_id --clipboard
       } else {
-        insert $parsed.target --source-id $parsed.source_id
+        paste $parsed.target --source-id $parsed.source_id
       }
     }
   } else if ($cmd == "source") {
     # If called as just `snip source`, show list
     if ($rest | is-empty) {
-      "source ls"
+      source ls
     } else {
       error make { msg: "Invoke subcommands directly: snip 'source ls|add|rm|remove|default|new' ..." }
     }
@@ -168,14 +168,14 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #   search <term> Search snippet names using a case-insensitive substring match.
 #   show <name>   Display snippet details, optionally filtered by --source-id.
 #   run <name>    Execute the snippet in a fresh Nushell process.
-#   add           Create a snippet in the default or selected source file.
-#   insert <name> Stage the snippet in the REPL buffer and/or clipboard.
+#   new           Create a snippet in the default or selected source file.
+#   paste <name>  Stage the snippet in the REPL buffer and/or clipboard.
 #   source *      Manage registered snippet source files (including 'source default').
 #
 # Examples:
 #   snip ls
 #   snip run deploy --source-id 57e8a148
-#   snip insert demo --both
+#   snip paste demo --both
 export def --env main [
   subcommand: string = "ls",
   ...args: string

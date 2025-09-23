@@ -243,8 +243,8 @@ def get [
   }
 }
 
-# Insert snippet command into the REPL buffer and/or clipboard
-export def --env "insert" [
+# Paste snippet command into the REPL buffer and/or clipboard
+export def --env "paste" [
   target: string,            # snippet name or row index
   --source-id: string = "",  # disambiguate when names collide
   --clipboard(-c),           # copy only to clipboard

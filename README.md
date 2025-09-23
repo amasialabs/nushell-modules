@@ -59,7 +59,7 @@ Import with `use amasia/snip` to expose the following commands:
 - `snip run <name|index> [--source-id <id>]` — Execute the snippet in a fresh Nushell process.
 - `snip new --name <value> --commands <cmd1> [<cmd2> ...] [--source-id <id>]` — Create a snippet with one or more commands in the default or selected source.
 - `snip remove <name|index> [--source-id <id>]` — Remove a snippet by name or ls index.
-- `snip insert <name|index> [flags]` — Drop the command into the current buffer and/or clipboard.
+- `snip paste <name|index> [flags]` — Drop the command into the current buffer and/or clipboard.
 
 All commands accept either a snippet name or the zero-based index returned by `snip ls`. Use `--source-id` when names collide across files.
 
@@ -98,7 +98,7 @@ snip show 0
 snip run deploy --source-id 57e8a148
 
 # Move a snippet into the command line buffer and clipboard
-snip insert 2 --both
+snip paste 2 --both
 ```
 
 ### Authoring Snippets
