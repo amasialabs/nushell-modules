@@ -152,7 +152,7 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
   } else if ($cmd == "source") {
     # If called as just `snip source`, show list
     if ($rest | is-empty) {
-      "source ls" | do $it
+      "source ls"
     } else {
       error make { msg: "Invoke subcommands directly: snip 'source ls|add|rm|remove|default|new' ..." }
     }
