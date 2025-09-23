@@ -146,15 +146,29 @@ export def --env "source remove" [
   --id: string = "",
   --path: string = ""
 ] {
-  if ($pos_id != null) {
-    source rm $pos_id
-  } else if (not ($id | is-empty)) {
-    source rm --id $id
-  } else if (not ($path | is-empty)) {
-    source rm --path $path
-  } else {
+  reload-snip-sources
+  # Use positional id if provided, otherwise fall back to --id flag
+  let final_id = if ($pos_id != null) { $pos_id } else { $id }
+
+  let has_id = ($final_id != "" and $final_id != null)
+  let has_path = (not ($path | is-empty))
+
+  if (not $has_id and not $has_path) {
     error make { msg: "Provide id or --path" }
   }
+  if ($has_id and $has_path) {
+    error make { msg: "Provide only one: id or --path" }
+  }
+
+  let target_id = if $has_id { $final_id } else { (snip-id-from-path ($path | path expand)) }
+  let next = ($env.AMASIA_SNIP_SOURCES | where {|r| $r.id != $target_id })
+
+  if (($next | length) == ($env.AMASIA_SNIP_SOURCES | length)) {
+    return  # nothing removed
+  }
+
+  $env.AMASIA_SNIP_SOURCES = $next
+  save-snip-sources
 }
 
 # Create a new snippets file (empty list) at a given path or name in current directory and add it as a source
@@ -179,8 +193,26 @@ export def --env "source new" [
   # Write empty relaxed NuON list
   "[]\n" | save -f --raw $target_path
 
-  # Add as source
-  source add $target_path
+  # Add as source (inline logic from source add)
+  let p = ($target_path | path expand)
+  if ($env.AMASIA_SNIP_SOURCES | any {|x| $x.path == $p }) {
+    let id = (snip-id-from-path $p)
+    print $"Source already added: '($p)' (id: ($id))"
+    return
+  }
+
+  let validation = (validate-snip-file $p)
+  if (not $validation.valid) {
+    error make { msg: $validation.message }
+  }
+  if (($validation.duplicates | length) > 0) {
+    let dup = ($validation.duplicates | str join ", ")
+    print $"Warning: duplicate snippet names in '($p)': ($dup)"
+  }
+
+  let id = (snip-id-from-path $p)
+  $env.AMASIA_SNIP_SOURCES = ($env.AMASIA_SNIP_SOURCES | append { id: $id, path: $p, is_default: false })
+  save-snip-sources
 }
 
 # Set the default snip source
