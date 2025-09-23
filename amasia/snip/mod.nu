@@ -150,7 +150,20 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
   }
 }
 
-# Short command wrapper around snip utilities
+# Snip command-line entry point; dispatches to the exported subcommands.
+#
+# Subcommands:
+#   ls            List every snippet aggregated from all sources.
+#   search <term> Search snippet names using a case-insensitive substring match.
+#   show <name>   Display snippet details, optionally filtered by --source-id.
+#   run <name>    Execute the snippet in a fresh Nushell process.
+#   insert <name> Stage the snippet in the REPL buffer and/or clipboard.
+#   source *      Manage registered snippet source files.
+#
+# Examples:
+#   snip ls
+#   snip run deploy --source-id 57e8a148
+#   snip insert demo --both
 export def --env main [
   subcommand: string = "ls",
   ...args: string
