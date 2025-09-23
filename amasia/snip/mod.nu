@@ -152,7 +152,10 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
   } else if ($cmd == "source") {
     # If called as just `snip source`, show list
     if ($rest | is-empty) {
-      "source ls"
+      reload-snip-sources
+      $env.AMASIA_SNIP_SOURCES
+      | select is_default id path
+      | rename default id path
     } else {
       error make { msg: "Invoke subcommands directly: snip 'source ls|add|rm|remove|default|new' ..." }
     }
