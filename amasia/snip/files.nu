@@ -179,7 +179,9 @@ export def --env "source new" [
 
   let s = ($name_or_path | into string)
   let has_sep = (($s | str contains "/") or ($s | str contains "\\"))
-  let target_path = if $has_sep { ($s | path expand) } else { (pwd | path join $s) }
+  let base_path = if $has_sep { ($s | path expand) } else { (pwd | path join $s) }
+  let ext = ((($base_path | path parse).extension?) | default "")
+  let target_path = if (($ext | str downcase) == "nuon") { $base_path } else { $"($base_path).nuon" }
 
   let parent = ($target_path | path dirname)
   if not ($parent | path exists) {
