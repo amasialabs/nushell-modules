@@ -5,7 +5,7 @@ use storage.nu [reload-snip-sources]
 
 # Export file management commands
 use files.nu
-export use files.nu ["source add" "source rm" "source ls" "source default"]
+export use files.nu ["source add" "source rm" "source remove" "source ls" "source default" "source new"]
 
 # Export snippet runner commands
 use runner.nu
@@ -13,7 +13,7 @@ export use runner.nu ["ls" "search" "run" "show" "insert"]
 
 # Export snippet authoring commands
 use editor.nu
-export use editor.nu ["add"]
+export use editor.nu ["new" "remove"]
 
 # Parse target argument and optional --source-id flag
 def parse-target-args [args: list<string>] {
@@ -148,6 +148,13 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
       } else {
         insert $parsed.target --source-id $parsed.source_id
       }
+    }
+  } else if ($cmd == "source") {
+    # If called as just `snip source`, show list
+    if ($rest | is-empty) {
+      "source ls"
+    } else {
+      error make { msg: "Invoke subcommands directly: snip 'source ls|add|rm|remove|default|new' ..." }
     }
   } else {
     error make { msg: $"Unknown snip subcommand '($cmd)'." }

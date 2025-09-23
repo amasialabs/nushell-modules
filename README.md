@@ -57,7 +57,8 @@ Import with `use amasia/snip` to expose the following commands:
 - `snip search <term>` — Case-insensitive substring search over snippet names.
 - `snip show <name|index> [--source-id <id>]` — Inspect the snippet as a two-column table of fields and values.
 - `snip run <name|index> [--source-id <id>]` — Execute the snippet in a fresh Nushell process.
-- `snip add --name <value> --commands <cmd1> [<cmd2> ...] [--source-id <id>]` — Append a snippet with one or more commands to the default or selected source.
+- `snip new --name <value> --commands <cmd1> [<cmd2> ...] [--source-id <id>]` — Create a snippet with one or more commands in the default or selected source.
+- `snip remove <name|index> [--source-id <id>]` — Remove a snippet by name or ls index.
 - `snip insert <name|index> [flags]` — Drop the command into the current buffer and/or clipboard.
 
 All commands accept either a snippet name or the zero-based index returned by `snip ls`. Use `--source-id` when names collide across files.
@@ -66,17 +67,20 @@ All commands accept either a snippet name or the zero-based index returned by `s
 
 ### Source Management
 ```nu
-# Register a snippets file
+# Register a snippets file (validates format & warns on duplicates)
 snip source add ~/snippets/demo.nuon
 
+# Create a new snippets file in the current directory and register it
+snip source new mypack.nuon
+
 # Inspect configured sources (the `default` column marks the active target)
-snip source ls
+snip source
 
 # Promote another source to be the default (use an id from the table above)
 snip source default 57e8a148
 
-# Remove a source by the generated id
-snip source rm 57e8a148
+# Remove a source by the generated id (alias: `source remove`)
+snip source remove 57e8a148
 ```
 
 ### Finding & Running Snippets
@@ -100,10 +104,10 @@ snip insert 2 --both
 ### Authoring Snippets
 ```nu
 # Add a snippet to the default source
-snip add --name greet --commands "echo 'Hello from Nu'"
+snip new --name greet --commands "echo 'Hello from Nu'"
 
 # Add a multi-command snippet to a specific source
-snip add --name deploy --commands "git pull" "npm run deploy" --source-id 57e8a148
+snip new --name deploy --commands "git pull" "npm run deploy" --source-id 57e8a148
 ```
 
 ## Snippet File Format

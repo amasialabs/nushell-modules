@@ -55,7 +55,7 @@ def format-snippets-nuon [entries: list<record>] {
   $parts | str join "\n"
 }
 
-export def --env "add" [
+export def --env "new" [
   --name: string,
   --commands: list<string>,
   --source-id: string = "",
@@ -151,4 +151,79 @@ export def --env "add" [
 
   reload-snip-sources
   print $"Added snippet '($trimmed_name)' to source '($target.id)'"
+}
+
+# Remove a snippet by name or index; optional --source-id when names collide
+export def --env "remove" [
+  target: string,
+  --source-id: string = ""
+] {
+  let trimmed = ($target | into string | str trim)
+  if (($trimmed | str length) == 0) {
+    error make { msg: "Target must not be empty" }
+  }
+
+  use runner.nu [load-all-snip]
+
+  let all = (load-all-snip)
+  if ($all | is-empty) {
+    error make { msg: "No snippets found." }
+  }
+
+  # Resolve index vs name
+  let is_index = (try { $trimmed | into int | ignore; true } catch { false })
+  let match = if $is_index {
+    let idx = ($trimmed | into int)
+    if ($idx < 0 or $idx >= ($all | length)) {
+      error make { msg: $"Index ($trimmed) out of range 0..(($all | length) - 1)" }
+    }
+    ($all | skip $idx | first)
+  } else {
+    let candidates = ($all | where name == $trimmed)
+    if (($candidates | length) == 0) {
+      error make { msg: $"Snippet '($trimmed)' not found" }
+    } else if (($candidates | length) > 1) {
+      if ($source_id | str length) > 0 {
+        let filtered = ($candidates | where source_id == $source_id)
+        if (($filtered | length) != 1) {
+          error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source-id to disambiguate." }
+        }
+        ($filtered | first)
+      } else {
+        error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source-id to disambiguate." }
+      }
+    } else {
+      ($candidates | first)
+    }
+  }
+
+  let src_path = ($match.source_path | path expand)
+  if not ($src_path | path exists) {
+    error make { msg: $"Snippet source file not found: ($src_path)" }
+  }
+
+  let raw = (try { open $src_path --raw } catch {
+    let err_msg = (try { $in.msg } catch { "" })
+    let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+    error make { msg: $"Failed to read snippets from ($src_path).$suffix" }
+  })
+
+  let parsed = if ($raw | str trim | is-empty) { [] } else {
+    (try { $raw | from nuon } catch {
+      let err_msg = (try { $in.msg } catch { "" })
+      let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+      error make { msg: $"Failed to parse snippets from ($src_path) as nuon.$suffix" }
+    })
+  }
+
+  # Filter out by name
+  let remaining = ($parsed | where {|r| ($r | get name | into string) != $match.name })
+  if (($remaining | length) == ($parsed | length)) {
+    error make { msg: $"Snippet '($match.name)' not found in source file (concurrent change?)." }
+  }
+
+  (format-snippets-nuon $remaining)
+  | save -f --raw $src_path
+
+  print $"Removed snippet '($match.name)' from source '($match.source_id)'"
 }

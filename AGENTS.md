@@ -8,7 +8,7 @@ Run everything inside Nushell >=0.85. Helpful commands while iterating:
 ```
 nu -c 'use ./amasia/snip/mod.nu; snip source add ~/snippets/demo.nuon'   # register a snippets file
 nu -c 'use ./amasia/snip/mod.nu; snip source default 57e8a148'           # mark a default source
-nu -c 'use ./amasia/snip/mod.nu; snip add --name greet --commands "echo hi"'  # add a snippet to the default source
+nu -c 'use ./amasia/snip/mod.nu; snip new --name greet --commands "echo hi"'  # add a snippet to the default source
 nu -c 'use ./amasia/snip/mod.nu; snip ls'                               # list merged snippets
 nu -c 'use ./amasia/snip/mod.nu; snip run demo --source-id 57e8a148'    # execute a snippet
 nu -c 'use ./amasia/snip/mod.nu; snip search git'                       # exercise dispatcher directly

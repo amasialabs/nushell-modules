@@ -2,6 +2,79 @@
 
 use storage.nu [snip-id-from-path reload-snip-sources save-snip-sources]
 
+# Validate that a snippets file is in our expected shape and collect duplicate names
+def validate-snip-file [p: string] {
+  if not ($p | path exists) {
+    return { valid: false, message: $"File not found: ($p)", duplicates: [] }
+  }
+  if (($p | path type) != "file") {
+    return { valid: false, message: $"Not a file: ($p)", duplicates: [] }
+  }
+
+  let raw = (try { open $p --raw } catch {
+    let err_msg = (try { $in.msg } catch { "" })
+    let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+    error make { msg: $"Failed to read snip source ($p).$suffix" }
+  })
+
+  if ($raw | str trim | is-empty) {
+    return { valid: true, message: "", duplicates: [] }
+  }
+
+  let parsed = (try { $raw | from nuon } catch {
+    let err_msg = (try { $in.msg } catch { "" })
+    let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+    error make { msg: $"Failed to parse snip source ($p) as nuon.$suffix" }
+  })
+
+  let desc = ($parsed | describe)
+  let is_table = ($desc | str starts-with "table<")
+  let is_list = ($desc | str starts-with "list<")
+  if (not $is_table and not $is_list) {
+    return { valid: false, message: $"Snip source ($p) must contain a list of records.", duplicates: [] }
+  }
+
+  # Validate rows and gather names
+  mut names = []
+  for $row in $parsed {
+    let row_type = ($row | describe)
+    if ($row_type | str starts-with "record<") == false {
+      return { valid: false, message: $"Snip source ($p) must contain only records.", duplicates: [] }
+    }
+    let cols = ($row | columns)
+    if not ($cols | any {|c| $c == "name" }) {
+      return { valid: false, message: $"A record in ($p) is missing the 'name' field.", duplicates: [] }
+    }
+    if not ($cols | any {|c| $c == "commands" }) {
+      return { valid: false, message: $"A record in ($p) is missing the 'commands' field.", duplicates: [] }
+    }
+
+    let nm = ($row.name | into string | str trim)
+    if ($nm | str length) == 0 {
+      return { valid: false, message: $"A record in ($p) has an empty 'name'.", duplicates: [] }
+    }
+
+    let cmds = $row.commands
+    let cmds_desc = ($cmds | describe)
+    if ($cmds_desc | str starts-with "list<string") == false {
+      return { valid: false, message: $"Record '($nm)' in ($p) must store 'commands' as list<string>.", duplicates: [] }
+    }
+
+    $names = ($names | append $nm)
+  }
+
+  let duplicates = (
+    $names
+    | wrap name
+    | group-by name
+    | transpose key vals
+    | where { ($in.vals | length) > 1 }
+    | get key
+  )
+
+  { valid: true, message: "", duplicates: $duplicates }
+}
+
 export def --env "source add" [
   file: string
 ] {
@@ -16,7 +89,19 @@ export def --env "source add" [
   }
 
   if ($env.AMASIA_SNIP_SOURCES | any {|x| $x.path == $p }) {
-    return  # already present, no-op
+    let id = (snip-id-from-path $p)
+    print $"Source already added: '($p)' (id: ($id))"
+    return
+  }
+
+  # Validate file shape and report duplicates inside the file
+  let validation = (validate-snip-file $p)
+  if (not $validation.valid) {
+    error make { msg: $validation.message }
+  }
+  if (($validation.duplicates | length) > 0) {
+    let dup = ($validation.duplicates | str join ", ")
+    print $"Warning: duplicate snippet names in '($p)': ($dup)"
   }
 
   let id = (snip-id-from-path $p)
@@ -53,6 +138,49 @@ export def --env "source rm" [
 
   $env.AMASIA_SNIP_SOURCES = $next
   save-snip-sources
+}
+
+# Alias: remove a file from AMASIA_SNIP_SOURCES by id or --path
+export def --env "source remove" [
+  pos_id?: string,
+  --id: string = "",
+  --path: string = ""
+] {
+  if ($pos_id != null) {
+    source rm $pos_id
+  } else if (not ($id | is-empty)) {
+    source rm --id $id
+  } else if (not ($path | is-empty)) {
+    source rm --path $path
+  } else {
+    error make { msg: "Provide id or --path" }
+  }
+}
+
+# Create a new snippets file (empty list) at a given path or name in current directory and add it as a source
+export def --env "source new" [
+  name_or_path: string
+] {
+  reload-snip-sources
+
+  let s = ($name_or_path | into string)
+  let has_sep = (($s | str contains "/") or ($s | str contains "\\"))
+  let target_path = if $has_sep { ($s | path expand) } else { (pwd | path join $s) }
+
+  let parent = ($target_path | path dirname)
+  if not ($parent | path exists) {
+    mkdir $parent
+  }
+
+  if (($target_path | path exists) and (($target_path | path type) == "file")) {
+    error make { msg: $"File already exists: ($target_path)" }
+  }
+
+  # Write empty relaxed NuON list
+  "[]\n" | save -f --raw $target_path
+
+  # Add as source
+  source add $target_path
 }
 
 # Set the default snip source
