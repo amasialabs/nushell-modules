@@ -854,3 +854,5 @@ fabric.properties
 .env
 .production.env
 .development.env
+
+.claude
