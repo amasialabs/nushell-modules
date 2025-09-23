@@ -48,6 +48,7 @@ if not ($config_text | str contains $source_line) {
 }
 
 if $updated {
-    print $"  Modules deployed. Run the command below or restart your shell to apply the changes:\n"
+    print $"  Modules deployed. Run the commands below or restart your shell to apply the changes:\n"
     print $"   ($source_line)"
+    print $"   use amasia/snip"
 }
