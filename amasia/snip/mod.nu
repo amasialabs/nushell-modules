@@ -164,15 +164,6 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #   snip ls
 #   snip run deploy --source-id 57e8a148
 #   snip insert demo --both
-export def --env snip [
-  subcommand: string = "ls",
-  ...args: string
-] {
-  snip-dispatch $subcommand $args
-}
-
-
-# Legacy entry point kept for compatibility with earlier releases.
 export def --env main [
   subcommand: string = "ls",
   ...args: string
