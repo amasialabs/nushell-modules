@@ -2,6 +2,59 @@
 
 use storage.nu [reload-snip-sources save-snip-sources]
 
+def nuon-string [s: string] {
+  # Use to nuon for proper escaping, then strip list brackets
+  [ $s ]
+  | to nuon --indent 0
+  | str trim
+  | str replace --regex '^\[\s*' ''
+  | str replace --regex '\s*\]$' ''
+  | str trim
+}
+
+def format-snippet-entry [e: record] {
+  let nm = ($e.name | into string)
+  let name_part = (nuon-string $nm)
+
+  let has_desc = ($e | columns | any {|c| $c == "description" })
+  let desc_line = if $has_desc {
+    let dv = $e.description
+    let dd = ($dv | describe)
+    let dv_str = if $dd == "string" {
+      nuon-string $dv
+    } else if ($dd | str starts-with "list<string") {
+      nuon-string ($dv | str join " ")
+    } else {
+      nuon-string ($dv | into string)
+    }
+    $"    description: ($dv_str)"
+  } else { "" }
+
+  let cmds = ($e.commands | each {|c| $c | into string })
+  mut lines = []
+  $lines = ($lines | append "  {")
+  $lines = ($lines | append $"    name: ($name_part)")
+  if ($desc_line | str length) > 0 {
+    $lines = ($lines | append $desc_line)
+  }
+  $lines = ($lines | append "    commands: [")
+  for $cmd in $cmds {
+    $lines = ($lines | append $"      (nuon-string $cmd)")
+  }
+  $lines = ($lines | append "    ]")
+  $lines = ($lines | append "  }")
+  $lines | str join "\n"
+}
+
+def format-snippets-nuon [entries: list<record>] {
+  mut parts = ["["]
+  for $e in $entries {
+    $parts = ($parts | append (format-snippet-entry $e))
+  }
+  $parts = ($parts | append "]")
+  $parts | str join "\n"
+}
+
 export def --env "add" [
   --name: string,
   --commands: list<string>,
@@ -93,8 +146,7 @@ export def --env "add" [
 
   $entries = ($entries | append $new_entry)
 
-  $entries
-  | to nuon --indent 2
+  (format-snippets-nuon $entries)
   | save -f --raw $target_path
 
   reload-snip-sources
