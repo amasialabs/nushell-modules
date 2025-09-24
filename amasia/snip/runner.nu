@@ -187,7 +187,7 @@ def load-all-snip [] {
 
 # List all available snippets
 export def --env "ls" [] {
-  load-all-snip | select name command source_name | rename name command source
+  load-all-snip | select name commands source_name | rename name commands source
 }
 
 
