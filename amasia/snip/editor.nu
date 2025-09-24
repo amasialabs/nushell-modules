@@ -318,26 +318,37 @@ export def --env "rm" [
   target?: string,           # snippet name or index (optional, can be piped)
   --source: string = ""
 ] {
-  # Get target from argument or stdin
-  let actual_target = if ($target | is-empty) {
-    if ($in | is-empty) {
+  # Capture stdin immediately
+  let stdin_input = $in
+
+  # Get target(s) from argument or stdin
+  let targets = if ($target | is-empty) {
+    if ($stdin_input | is-empty) {
       error make { msg: "Target argument is required (either as argument or piped input)." }
     }
-    $in | str trim
+    # Check if stdin is a list (batch removal) or single string
+    let stdin_type = ($stdin_input | describe)
+    if ($stdin_type | str starts-with "list") {
+      $stdin_input
+    } else {
+      [$stdin_input]
+    }
   } else {
-    $target
+    [$target]
   }
 
-  let trimmed = ($actual_target | into string | str trim)
-  if (($trimmed | str length) == 0) {
-    error make { msg: "Target must not be empty" }
-  }
+  # Process each target
+  for $single_target in $targets {
+    let trimmed = ($single_target | into string | str trim)
+    if (($trimmed | str length) == 0) {
+      continue  # Skip empty targets
+    }
 
-  # Load all snippets to resolve target and source
-  let srcs = (list-sources)
-  let all = (
-    $srcs
-    | each {|source|
+    # Load all snippets to resolve target and source
+    let srcs = (list-sources)
+    let all = (
+      $srcs
+      | each {|source|
         let source_path = (snip-source-path $source.name)
         if ($source_path | path exists) {
           let raw = (try { open $source_path --raw } catch { let err_msg = (try { $in.msg } catch { "" }); let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }; error make { msg: $"Failed to read snip source ($source_path).$suffix" } })
@@ -364,67 +375,68 @@ export def --env "rm" [
             }
           }
         } else { [] }
-    }
-    | flatten
-  )
-  if ($all | is-empty) {
-    error make { msg: "No snippets found." }
-  }
-
-  # Resolve index vs name
-  let is_index = (try { $trimmed | into int | ignore; true } catch { false })
-  let match = if $is_index {
-    let idx = ($trimmed | into int)
-    if ($idx < 0 or $idx >= ($all | length)) {
-      error make { msg: $"Index ($trimmed) out of range 0..(($all | length) - 1)" }
-    }
-    ($all | skip $idx | first)
-  } else {
-    let candidates = ($all | where name == $trimmed)
-    if (($candidates | length) == 0) {
-      error make { msg: $"Snippet '($trimmed)' not found" }
-    } else if (($candidates | length) > 1) {
-      if ($source | str length) > 0 {
-        let filtered = ($candidates | where source_name == $source)
-        if (($filtered | length) != 1) {
-          error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source to disambiguate." }
-        }
-        ($filtered | first)
-      } else {
-        error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source-id to disambiguate." }
       }
-    } else {
-      ($candidates | first)
+      | flatten
+    )
+    if ($all | is-empty) {
+    error make { msg: "No snippets found." }
     }
-  }
 
-  let src_path = $match.source_path
-  if not ($src_path | path exists) {
-    error make { msg: $"Snippet source file not found: ($src_path)" }
-  }
+    # Resolve index vs name
+    let is_index = (try { $trimmed | into int | ignore; true } catch { false })
+    let match = if $is_index {
+      let idx = ($trimmed | into int)
+      if ($idx < 0 or $idx >= ($all | length)) {
+        error make { msg: $"Index ($trimmed) out of range 0..(($all | length) - 1)" }
+      }
+      ($all | skip $idx | first)
+    } else {
+      let candidates = ($all | where name == $trimmed)
+      if (($candidates | length) == 0) {
+        error make { msg: $"Snippet '($trimmed)' not found" }
+      } else if (($candidates | length) > 1) {
+        if ($source | str length) > 0 {
+          let filtered = ($candidates | where source_name == $source)
+          if (($filtered | length) != 1) {
+            error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source to disambiguate." }
+          }
+          ($filtered | first)
+        } else {
+          error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source-id to disambiguate." }
+        }
+      } else {
+        ($candidates | first)
+      }
+    }
 
-  let raw = (try { open $src_path --raw } catch {
-    let err_msg = (try { $in.msg } catch { "" })
-    let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
-    error make { msg: $"Failed to read snippets from ($src_path).$suffix" }
-  })
+    let src_path = $match.source_path
+    if not ($src_path | path exists) {
+      error make { msg: $"Snippet source file not found: ($src_path)" }
+    }
 
-  let parsed = if ($raw | str trim | is-empty) { [] } else {
-    (try { $raw | from nuon } catch {
+    let raw = (try { open $src_path --raw } catch {
       let err_msg = (try { $in.msg } catch { "" })
       let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
-      error make { msg: $"Failed to parse snippets from ($src_path) as nuon.$suffix" }
+      error make { msg: $"Failed to read snippets from ($src_path).$suffix" }
     })
+
+    let parsed = if ($raw | str trim | is-empty) { [] } else {
+      (try { $raw | from nuon } catch {
+        let err_msg = (try { $in.msg } catch { "" })
+        let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+        error make { msg: $"Failed to parse snippets from ($src_path) as nuon.$suffix" }
+      })
+    }
+
+    # Filter out by name
+    let remaining = ($parsed | where {|r| ($r | get name | into string) != $match.name })
+    if (($remaining | length) == ($parsed | length)) {
+      error make { msg: $"Snippet '($match.name)' not found in source file (concurrent change?)." }
+    }
+
+    (format-snippets-nuon $remaining)
+    | save -f --raw $src_path
+
+    print $"Removed snippet '($match.name)' from source '($match.source_name)"
   }
-
-  # Filter out by name
-  let remaining = ($parsed | where {|r| ($r | get name | into string) != $match.name })
-  if (($remaining | length) == ($parsed | length)) {
-    error make { msg: $"Snippet '($match.name)' not found in source file (concurrent change?)." }
-  }
-
-  (format-snippets-nuon $remaining)
-  | save -f --raw $src_path
-
-  print $"Removed snippet '($match.name)' from source '($match.source_name)"
 }
