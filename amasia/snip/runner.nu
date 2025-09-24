@@ -379,7 +379,10 @@ export def "pick" [
 
   let selected = (
     $snippets
-    | flatten
+    | each {|snip|
+      # Join commands into single string for display
+      $snip | update commands {|row| $row.commands | str join "; "}
+    }
     | to csv --separator "\t"
     | fzf --header-lines 1
     | str trim
@@ -392,11 +395,11 @@ export def "pick" [
   }
 
   if $run {
-    snip run $selected
+    run $selected
   } else if $clipboard {
-    snip paste $selected --clipboard
+    paste $selected --clipboard
   } else {
-    $selected
+    paste $selected
   }
 }
 
