@@ -165,10 +165,20 @@ export def --env "new" [
 
 # Remove a snippet by name or index; optional --source when names collide
 export def --env "rm" [
-  target: string,
+  target?: string,           # snippet name or index (optional, can be piped)
   --source: string = ""
 ] {
-  let trimmed = ($target | into string | str trim)
+  # Get target from argument or stdin
+  let actual_target = if ($target | is-empty) {
+    if ($in | is-empty) {
+      error make { msg: "Target argument is required (either as argument or piped input)." }
+    }
+    $in | str trim
+  } else {
+    $target
+  }
+
+  let trimmed = ($actual_target | into string | str trim)
   if (($trimmed | str length) == 0) {
     error make { msg: "Target must not be empty" }
   }

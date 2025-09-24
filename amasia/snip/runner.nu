@@ -238,16 +238,29 @@ def get [
 
 # Paste snippet command into the REPL buffer and/or clipboard
 export def --env "paste" [
-  target: string,            # snippet name or row index
+  target?: string,           # snippet name or row index (optional, can be piped)
   --source: string = "",  # disambiguate when names collide
   --clipboard(-c),           # copy only to clipboard
   --both(-b)                 # send to command line and clipboard
 ] {
+  # Capture stdin immediately before optional parameters consume it
+  let stdin_input = $in
+
   if ($clipboard and $both) {
     error make { msg: "Use either --clipboard (-c) or --both (-b), not both." }
   }
 
-  let snip = (get $target --source $source)
+  # Get target from argument or stdin
+  let actual_target = if ($target | is-empty) {
+    if ($stdin_input | is-empty) {
+      error make { msg: "Target argument is required (either as argument or piped input)." }
+    }
+    $stdin_input | str trim
+  } else {
+    $target
+  }
+
+  let snip = (get $actual_target --source $source)
   let text = $snip.command
 
   let do_clipboard = ($clipboard or $both)
@@ -288,10 +301,23 @@ export def --env "paste" [
 
 # Execute a snippet by name
 export def "run" [
-  target: string,            # snip name or row index
+  target?: string,           # snip name or row index (optional, can be piped)
   --source: string = ""   # disambiguate when names collide
 ] {
-  let snip = (get $target --source $source)
+  # Capture stdin immediately before optional parameters consume it
+  let stdin_input = $in
+
+  # Get target from argument or stdin
+  let actual_target = if ($target | is-empty) {
+    if ($stdin_input | is-empty) {
+      error make { msg: "Target argument is required (either as argument or piped input)." }
+    }
+    $stdin_input | str trim
+  } else {
+    $target
+  }
+
+  let snip = (get $actual_target --source $source)
   if (not ($snip | columns | any {|c| $c == "commands" })) {
     # Fallback: execute joined text
     nu -c $snip.command
@@ -304,10 +330,23 @@ export def "run" [
 
 # Show snippet details
 export def "show" [
-  target: string,            # snip name or row index
+  target?: string,           # snip name or row index (optional, can be piped)
   --source: string = ""   # disambiguate when names collide
 ] {
-  let snip = (get $target --source $source)
+  # Capture stdin immediately before optional parameters consume it
+  let stdin_input = $in
+
+  # Get target from argument or stdin
+  let actual_target = if ($target | is-empty) {
+    if ($stdin_input | is-empty) {
+      error make { msg: "Target argument is required (either as argument or piped input)." }
+    }
+    $stdin_input | str trim
+  } else {
+    $target
+  }
+
+  let snip = (get $actual_target --source $source)
   let desc = ($snip.description? | default "")
 
   mut rows = []

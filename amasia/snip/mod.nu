@@ -18,7 +18,7 @@ export use editor.nu ["new" "rm"]
 # Parse target argument and optional --source flag
 def parse-target-args [args: list<string>] {
   if ($args | is-empty) {
-    error make { msg: "Target argument is required." }
+    return { target: "", source: "" }
   }
 
   let target = ($args | first)
@@ -51,7 +51,7 @@ def parse-target-args [args: list<string>] {
 # Parse paste arguments including clipboard flags
 def parse-paste-args [args: list<string>] {
   if ($args | is-empty) {
-    error make { msg: "Target argument is required." }
+    return { target: "", source: "", clipboard: false, both: false }
   }
 
   let target = ($args | first)
@@ -104,6 +104,7 @@ def parse-paste-args [args: list<string>] {
 def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
   let cmd = ($subcommand | str trim | str downcase)
   let rest = $args
+  let stdin_input = $in
 
   if ($cmd == "" or $cmd == "ls") {
     if (not ($rest | is-empty)) {
@@ -111,36 +112,142 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
     }
     ls
   } else if ($cmd == "show") {
-    let parsed = (parse-target-args $rest)
-    if ($parsed.source | is-empty) {
-      show $parsed.target
+    # If no args and stdin has data, pass stdin to show
+    if ($rest | is-empty) and (not ($stdin_input | is-empty)) {
+      $stdin_input | show
     } else {
-      show $parsed.target --source $parsed.source
+      let parsed = (parse-target-args $rest)
+      if ($parsed.source | is-empty) {
+        show $parsed.target
+      } else {
+        show $parsed.target --source $parsed.source
+      }
     }
   } else if ($cmd == "run") {
-    let parsed = (parse-target-args $rest)
-    if ($parsed.source | is-empty) {
-      run $parsed.target
+    # If no args and stdin has data, pass stdin to run
+    if ($rest | is-empty) and (not ($stdin_input | is-empty)) {
+      $stdin_input | run
     } else {
-      run $parsed.target --source $parsed.source
+      let parsed = (parse-target-args $rest)
+      if ($parsed.source | is-empty) {
+        run $parsed.target
+      } else {
+        run $parsed.target --source $parsed.source
+      }
     }
   } else if ($cmd == "paste") {
-    let parsed = (parse-paste-args $rest)
-    if ($parsed.source | is-empty) {
-      if ($parsed.both) {
-        paste $parsed.target --both
-      } else if ($parsed.clipboard) {
-        paste $parsed.target --clipboard
+    # Check if the first arg is a flag (meaning no target provided)
+    let first_is_flag = if ($rest | is-empty) {
+      false
+    } else {
+      (($rest | first) | str starts-with "-")
+    }
+
+    if ($rest | is-empty) and (not ($stdin_input | is-empty)) {
+      # No args at all, just stdin - pass directly to paste
+      $stdin_input | paste
+    } else if $first_is_flag and (not ($stdin_input | is-empty)) {
+      # Parse flags but expect target from stdin
+      mut source = ""
+      mut clipboard = false
+      mut both = false
+      mut idx = 0
+
+      loop {
+        if $idx >= ($rest | length) {
+          break
+        }
+
+        let token = ($rest | get $idx)
+
+        if ($token == "--source") {
+          if ($idx + 1) >= ($rest | length) {
+            error make { msg: "--source requires a value." }
+          }
+          $source = ($rest | get ($idx + 1))
+          $idx = $idx + 2
+          continue
+        }
+
+        if (["--clipboard", "-c"] | any {|flag| $flag == $token }) {
+          $clipboard = true
+          $idx = $idx + 1
+          continue
+        }
+
+        if (["--both", "-b"] | any {|flag| $flag == $token }) {
+          $both = true
+          $idx = $idx + 1
+          continue
+        }
+
+        # If we hit a non-flag, this isn't flags-only
+        break
+      }
+
+      if ($clipboard and $both) {
+        error make { msg: "Use either --clipboard/-c or --both/-b, not both." }
+      }
+
+      # Dispatch with stdin as target
+      if ($source | is-empty) {
+        if $both {
+          $stdin_input | paste --both
+        } else if $clipboard {
+          $stdin_input | paste --clipboard
+        } else {
+          $stdin_input | paste
+        }
       } else {
-        paste $parsed.target
+        if $both {
+          $stdin_input | paste --source $source --both
+        } else if $clipboard {
+          $stdin_input | paste --source $source --clipboard
+        } else {
+          $stdin_input | paste --source $source
+        }
       }
     } else {
-      if ($parsed.both) {
-        paste $parsed.target --source $parsed.source --both
-      } else if ($parsed.clipboard) {
-        paste $parsed.target --source $parsed.source --clipboard
+      # Normal parsing with possible stdin fallback
+      let parsed = (parse-paste-args $rest)
+      # If target is empty and stdin available, use stdin
+      if ($parsed.target | is-empty) and (not ($stdin_input | is-empty)) {
+        if ($parsed.source | is-empty) {
+          if ($parsed.both) {
+            $stdin_input | paste --both
+          } else if ($parsed.clipboard) {
+            $stdin_input | paste --clipboard
+          } else {
+            $stdin_input | paste
+          }
+        } else {
+          if ($parsed.both) {
+            $stdin_input | paste --source $parsed.source --both
+          } else if ($parsed.clipboard) {
+            $stdin_input | paste --source $parsed.source --clipboard
+          } else {
+            $stdin_input | paste --source $parsed.source
+          }
+        }
       } else {
-        paste $parsed.target --source $parsed.source
+        # Normal argument-based dispatch
+        if ($parsed.source | is-empty) {
+          if ($parsed.both) {
+            paste $parsed.target --both
+          } else if ($parsed.clipboard) {
+            paste $parsed.target --clipboard
+          } else {
+            paste $parsed.target
+          }
+        } else {
+          if ($parsed.both) {
+            paste $parsed.target --source $parsed.source --both
+          } else if ($parsed.clipboard) {
+            paste $parsed.target --source $parsed.source --clipboard
+          } else {
+            paste $parsed.target --source $parsed.source
+          }
+        }
       }
     }
   } else if ($cmd == "source") {
@@ -175,7 +282,7 @@ export def --env main [
   subcommand: string = "ls",
   ...args: string
 ] {
-  snip-dispatch $subcommand $args
+  $in | snip-dispatch $subcommand $args
 }
 
 # Initialize environment on module load
