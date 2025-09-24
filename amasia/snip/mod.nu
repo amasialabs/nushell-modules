@@ -65,14 +65,13 @@ def parse-target-args [args: list<string>] {
 # Parse paste arguments including clipboard flags
 def parse-paste-args [args: list<string>] {
   if ($args | is-empty) {
-    return { target: "", source: "", clipboard: false, both: false }
+    return { target: "", source: "", clipboard: false }
   }
 
   let target = ($args | first)
   let rest = ($args | skip 1)
   mut source = ""
   mut clipboard = false
-  mut both = false
   mut idx = 0
 
   loop {
@@ -97,20 +96,11 @@ def parse-paste-args [args: list<string>] {
       continue
     }
 
-    if (["--both", "-b"] | any {|flag| $flag == $token }) {
-      $both = true
-      $idx = $idx + 1
-      continue
-    }
 
     error make { msg: $"Unknown argument ($token)." }
   }
 
-  if ($clipboard and $both) {
-    error make { msg: "Use either --clipboard/-c or --both/-b, not both." }
-  }
-
-  { target: $target, source: $source, clipboard: $clipboard, both: $both }
+  { target: $target, source: $source, clipboard: $clipboard }
 }
 
 
@@ -212,17 +202,13 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
       # If target is empty and stdin available, use stdin
       if ($parsed.target | is-empty) and (not ($stdin_input | is-empty)) {
         if ($parsed.source | is-empty) {
-          if ($parsed.both) {
-            $stdin_input | paste --both
-          } else if ($parsed.clipboard) {
+          if ($parsed.clipboard) {
             $stdin_input | paste --clipboard
           } else {
             $stdin_input | paste
           }
         } else {
-          if ($parsed.both) {
-            $stdin_input | paste --source $parsed.source --both
-          } else if ($parsed.clipboard) {
+          if ($parsed.clipboard) {
             $stdin_input | paste --source $parsed.source --clipboard
           } else {
             $stdin_input | paste --source $parsed.source
@@ -231,17 +217,13 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
       } else {
         # Normal argument-based dispatch
         if ($parsed.source | is-empty) {
-          if ($parsed.both) {
-            paste $parsed.target --both
-          } else if ($parsed.clipboard) {
+          if ($parsed.clipboard) {
             paste $parsed.target --clipboard
           } else {
             paste $parsed.target
           }
         } else {
-          if ($parsed.both) {
-            paste $parsed.target --source $parsed.source --both
-          } else if ($parsed.clipboard) {
+          if ($parsed.clipboard) {
             paste $parsed.target --source $parsed.source --clipboard
           } else {
             paste $parsed.target --source $parsed.source
@@ -283,7 +265,7 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #   snip ls
 #   snip new hello --commands ["echo 'Hello!'"]
 #   snip run deploy --source work
-#   snip paste demo --both
+#   snip paste demo --clipboard
 #   snip history --limit 10
 #   snip history revert a3c4d5f
 export def --env main [
