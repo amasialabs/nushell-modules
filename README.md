@@ -124,6 +124,8 @@ snip new ssh-prod --commands ["ssh user@prod.example.com"] --source work
 
 # List sources
 snip source ls
+snip source                 # sugar for `source ls`
+snip source --from-hash <h> # sugar for `source ls --from-hash <h>`
 ╭───┬─────────╮
 │ # │ source  │
 ├───┼─────────┤
@@ -196,6 +198,7 @@ snip paste ssh-prod --from-hash a3c4d5f -c
 
 # View sources at a specific commit
 snip source ls --from-hash b2e3f6g
+snip source --from-hash b2e3f6g   # sugar
 
 # Revert all snippets to a previous state
 snip history revert a3c4d5f
@@ -203,6 +206,16 @@ snip history revert a3c4d5f
 
 # Revert with custom message
 snip history revert a3c4d5f --message "Restore working deployment scripts"
+```
+
+### Configuration
+
+- Override data directory with `AMASIA_NU_DATA_DIR` (default is `~/.amasia/nushell/data`). Useful for testing or portable setups.
+
+```nu
+$env.AMASIA_NU_DATA_DIR = "/tmp/amasia-nu"
+use amasia/snip
+snip ls
 ```
 
 ## Command Reference
@@ -218,6 +231,7 @@ snip history revert a3c4d5f --message "Restore working deployment scripts"
 | `snip run`            | Execute snippet           | `snip run test` or `echo "test" \| snip run`   |
 | `snip show`           | Show snippet details      | `snip show test`                               |
 | `snip paste`          | Paste to buffer/clipboard | `snip paste test -c`                           |
+| `snip config`         | Show configuration        | `snip config`                                  |
 | `snip history`        | Show Git history          | `snip history --limit 20`                      |
 | `snip history revert` | Revert to commit          | `snip history revert a3c4d5f`                  |
 

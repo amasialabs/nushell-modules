@@ -272,8 +272,8 @@ def get [
       } else {
         error make { msg: $"Multiple snippets found with name '($name)'. Use --source to disambiguate." }
       }
-    } else {
-      error make { msg: $"Multiple snippets found with name '($name)'. Use --source-id to disambiguate." }
+  } else {
+      error make { msg: $"Multiple snippets found with name '($name)'. Use --source to disambiguate." }
     }
   } else {
     $matches | first
@@ -370,6 +370,11 @@ export def "pick" [
   --run(-r)         # run selected snippet
 ] {
   let input = $in
+
+  # Ensure fzf is available
+  if (((which fzf) | length) == 0) {
+    error make { msg: "fzf not found in PATH. Install fzf or pipe a selection manually." }
+  }
 
   let snippets = if ($input | is-empty) {
     load-all-snip | reject description

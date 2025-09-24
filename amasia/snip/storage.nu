@@ -10,10 +10,8 @@ const default_snip_template = "[\n  {\n    name: hello-world\n    description: \
 
 
 export def ensure-snip-paths [] {
-  let base = ($nu.home-path | path join $amasia_root_dirname $amasia_shell_dirname)
-  if not ($base | path exists) { mkdir $base }
-
-  let data_root = ($base | path join $data_root_dirname)
+  # Base data root honors AMASIA_NU_DATA_DIR override when set
+  let data_root = (snip-data-dir)
   if not ($data_root | path exists) { mkdir $data_root }
 
   let snip_dir = ($data_root | path join $snip_dirname)

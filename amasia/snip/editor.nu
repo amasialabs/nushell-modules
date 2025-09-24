@@ -421,7 +421,7 @@ export def --env "rm" [
           }
           ($filtered | first)
         } else {
-          error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source-id to disambiguate." }
+          error make { msg: $"Multiple snippets found with name '($trimmed)'. Use --source to disambiguate." }
         }
       } else {
         ($candidates | first)

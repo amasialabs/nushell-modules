@@ -11,6 +11,10 @@ export use files.nu ["source rm" "source ls" "source new"]
 use runner.nu
 export use runner.nu ["ls" "run" "show" "paste" "pick"]
 
+# Export config command
+use conf.nu
+export use conf.nu ["config"]
+
 # Export snippet authoring commands
 use editor.nu
 export use editor.nu ["new" "update" "rm"]
@@ -31,63 +35,69 @@ export def "history revert" [
   history revert-to-commit $hash --message $message
 }
 
-# Parse target argument and optional --source flag
-def parse-target-args [args: list<string>] {
-  if ($args | is-empty) {
-    return { target: "", source: "" }
-  }
-
-  let target = ($args | first)
-  let rest = ($args | skip 1)
+# Parse optional target and flags for run/show
+def parse-runshow-args [args: list<string>] {
+  mut target = ""
   mut source = ""
+  mut from_hash = ""
   mut idx = 0
 
   loop {
-    if $idx >= ($rest | length) {
-      break
-    }
-
-    let token = ($rest | get $idx)
+    if $idx >= ($args | length) { break }
+    let token = ($args | get $idx)
 
     if ($token == "--source") {
-      if ($idx + 1) >= ($rest | length) {
-        error make { msg: "--source requires a value." }
-      }
-      $source = ($rest | get ($idx + 1))
+      if ($idx + 1) >= ($args | length) { error make { msg: "--source requires a value." } }
+      $source = ($args | get ($idx + 1))
       $idx = $idx + 2
       continue
     }
 
-    error make { msg: $"Unknown argument ($token)." }
+    if ($token == "--from-hash") {
+      if ($idx + 1) >= ($args | length) { error make { msg: "--from-hash requires a value." } }
+      $from_hash = ($args | get ($idx + 1))
+      $idx = $idx + 2
+      continue
+    }
+
+    if ($token | str starts-with "-") {
+      error make { msg: $"Unknown argument ($token)." }
+    }
+
+    if ($target | is-empty) {
+      $target = $token
+      $idx = $idx + 1
+      continue
+    } else {
+      error make { msg: $"Unexpected extra argument ($token)." }
+    }
   }
 
-  { target: $target, source: $source }
+  { target: $target, source: $source, from_hash: $from_hash }
 }
 
-# Parse paste arguments including clipboard flags
+# Parse paste arguments: target is optional; supports --source, --clipboard/-c, --from-hash
 def parse-paste-args [args: list<string>] {
-  if ($args | is-empty) {
-    return { target: "", source: "", clipboard: false }
-  }
-
-  let target = ($args | first)
-  let rest = ($args | skip 1)
+  mut target = ""
   mut source = ""
   mut clipboard = false
+  mut from_hash = ""
   mut idx = 0
 
   loop {
-    if $idx >= ($rest | length) {
-      break
-    }
-
-    let token = ($rest | get $idx)
+    if $idx >= ($args | length) { break }
+    let token = ($args | get $idx)
 
     if ($token == "--source") {
-      if ($idx + 1) >= ($rest | length) {
-        error make { msg: "--source requires a value." }
-      }
-      $source = ($rest | get ($idx + 1))
+      if ($idx + 1) >= ($args | length) { error make { msg: "--source requires a value." } }
+      $source = ($args | get ($idx + 1))
+      $idx = $idx + 2
+      continue
+    }
+
+    if ($token == "--from-hash") {
+      if ($idx + 1) >= ($args | length) { error make { msg: "--from-hash requires a value." } }
+      $from_hash = ($args | get ($idx + 1))
       $idx = $idx + 2
       continue
     }
@@ -98,13 +108,21 @@ def parse-paste-args [args: list<string>] {
       continue
     }
 
+    if ($token | str starts-with "-") {
+      error make { msg: $"Unknown argument ($token)." }
+    }
 
-    error make { msg: $"Unknown argument ($token)." }
+    if ($target | is-empty) {
+      $target = $token
+      $idx = $idx + 1
+      continue
+    } else {
+      error make { msg: $"Unexpected extra argument ($token)." }
+    }
   }
 
-  { target: $target, source: $source, clipboard: $clipboard }
+  { target: $target, source: $source, clipboard: $clipboard, from_hash: $from_hash }
 }
-
 
 # Core dispatcher shared by exported and global snip commands
 def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
@@ -113,134 +131,143 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
   let stdin_input = $in
 
   if ($cmd == "" or $cmd == "ls") {
-    if (not ($rest | is-empty)) {
-      error make { msg: "snip ls does not accept arguments." }
+    # Support optional --from-hash
+    mut from_hash = ""
+    mut idx = 0
+    loop {
+      if $idx >= ($rest | length) { break }
+      let token = ($rest | get $idx)
+      if ($token == "--from-hash") {
+        if ($idx + 1) >= ($rest | length) { error make { msg: "--from-hash requires a value." } }
+        $from_hash = ($rest | get ($idx + 1))
+        $idx = $idx + 2
+        continue
+      }
+      error make { msg: $"Unknown argument ($token)." }
     }
-    ls
+    if ($from_hash | is-empty) { ls } else { ls --from-hash $from_hash }
   } else if ($cmd == "show") {
-    # If no args and stdin has data, pass stdin to show
-    if ($rest | is-empty) and (not ($stdin_input | is-empty)) {
-      $stdin_input | show
-    } else {
-      let parsed = (parse-target-args $rest)
-      if ($parsed.source | is-empty) {
-        show $parsed.target
+    let parsed = (parse-runshow-args $rest)
+    let use_stdin = ($parsed.target | is-empty) and (not ($stdin_input | is-empty))
+    let has_source = (not ($parsed.source | is-empty))
+    let has_from = (not ($parsed.from_hash | is-empty))
+
+    if $use_stdin {
+      if (not $has_source) and (not $has_from) {
+        $stdin_input | show
+      } else if (not $has_source) and $has_from {
+        $stdin_input | show --from-hash $parsed.from_hash
+      } else if $has_source and (not $has_from) {
+        $stdin_input | show --source $parsed.source
       } else {
+        $stdin_input | show --source $parsed.source --from-hash $parsed.from_hash
+      }
+    } else {
+      if (not $has_source) and (not $has_from) {
+        show $parsed.target
+      } else if (not $has_source) and $has_from {
+        show $parsed.target --from-hash $parsed.from_hash
+      } else if $has_source and (not $has_from) {
         show $parsed.target --source $parsed.source
+      } else {
+        show $parsed.target --source $parsed.source --from-hash $parsed.from_hash
       }
     }
   } else if ($cmd == "run") {
-    # If no args and stdin has data, pass stdin to run
-    if ($rest | is-empty) and (not ($stdin_input | is-empty)) {
-      $stdin_input | run
-    } else {
-      let parsed = (parse-target-args $rest)
-      if ($parsed.source | is-empty) {
-        run $parsed.target
+    let parsed = (parse-runshow-args $rest)
+    let use_stdin = ($parsed.target | is-empty) and (not ($stdin_input | is-empty))
+    let has_source = (not ($parsed.source | is-empty))
+    let has_from = (not ($parsed.from_hash | is-empty))
+
+    if $use_stdin {
+      if (not $has_source) and (not $has_from) {
+        $stdin_input | run
+      } else if (not $has_source) and $has_from {
+        $stdin_input | run --from-hash $parsed.from_hash
+      } else if $has_source and (not $has_from) {
+        $stdin_input | run --source $parsed.source
       } else {
+        $stdin_input | run --source $parsed.source --from-hash $parsed.from_hash
+      }
+    } else {
+      if (not $has_source) and (not $has_from) {
+        run $parsed.target
+      } else if (not $has_source) and $has_from {
+        run $parsed.target --from-hash $parsed.from_hash
+      } else if $has_source and (not $has_from) {
         run $parsed.target --source $parsed.source
+      } else {
+        run $parsed.target --source $parsed.source --from-hash $parsed.from_hash
       }
     }
   } else if ($cmd == "paste") {
-    # Check if the first arg is a flag (meaning no target provided)
-    let first_is_flag = if ($rest | is-empty) {
-      false
-    } else {
-      (($rest | first) | str starts-with "-")
-    }
+    # Unified parsing with optional target; supports flags anywhere
+    let parsed = (parse-paste-args $rest)
+    let use_stdin = ($parsed.target | is-empty) and (not ($stdin_input | is-empty))
+    let has_source = (not ($parsed.source | is-empty))
+    let has_clip = $parsed.clipboard
+    let has_from = (not ($parsed.from_hash | is-empty))
 
-    if ($rest | is-empty) and (not ($stdin_input | is-empty)) {
-      # No args at all, just stdin - pass directly to paste
-      $stdin_input | paste
-    } else if $first_is_flag and (not ($stdin_input | is-empty)) {
-      # Parse flags but expect target from stdin
-      mut source = ""
-      mut clipboard = false
-      mut idx = 0
-
-      loop {
-        if $idx >= ($rest | length) {
-          break
-        }
-
-        let token = ($rest | get $idx)
-
-        if ($token == "--source") {
-          if ($idx + 1) >= ($rest | length) {
-            error make { msg: "--source requires a value." }
-          }
-          $source = ($rest | get ($idx + 1))
-          $idx = $idx + 2
-          continue
-        }
-
-        if (["--clipboard", "-c"] | any {|flag| $flag == $token }) {
-          $clipboard = true
-          $idx = $idx + 1
-          continue
-        }
-
-        # If we hit a non-flag, this isn't flags-only
-        break
-      }
-
-      # Dispatch with stdin as target
-      if ($source | is-empty) {
-        if $clipboard {
-          $stdin_input | paste --clipboard
-        } else {
-          $stdin_input | paste
-        }
+    if $use_stdin {
+      if (not $has_source) and (not $has_from) and (not $has_clip) {
+        $stdin_input | paste
+      } else if (not $has_source) and (not $has_from) and $has_clip {
+        $stdin_input | paste --clipboard
+      } else if (not $has_source) and $has_from and (not $has_clip) {
+        $stdin_input | paste --from-hash $parsed.from_hash
+      } else if (not $has_source) and $has_from and $has_clip {
+        $stdin_input | paste --from-hash $parsed.from_hash --clipboard
+      } else if $has_source and (not $has_from) and (not $has_clip) {
+        $stdin_input | paste --source $parsed.source
+      } else if $has_source and (not $has_from) and $has_clip {
+        $stdin_input | paste --source $parsed.source --clipboard
+      } else if $has_source and $has_from and (not $has_clip) {
+        $stdin_input | paste --source $parsed.source --from-hash $parsed.from_hash
       } else {
-        if $clipboard {
-          $stdin_input | paste --source $source --clipboard
-        } else {
-          $stdin_input | paste --source $source
-        }
+        $stdin_input | paste --source $parsed.source --from-hash $parsed.from_hash --clipboard
       }
     } else {
-      # Normal parsing with possible stdin fallback
-      let parsed = (parse-paste-args $rest)
-      # If target is empty and stdin available, use stdin
-      if ($parsed.target | is-empty) and (not ($stdin_input | is-empty)) {
-        if ($parsed.source | is-empty) {
-          if ($parsed.clipboard) {
-            $stdin_input | paste --clipboard
-          } else {
-            $stdin_input | paste
-          }
-        } else {
-          if ($parsed.clipboard) {
-            $stdin_input | paste --source $parsed.source --clipboard
-          } else {
-            $stdin_input | paste --source $parsed.source
-          }
-        }
+      if (not $has_source) and (not $has_from) and (not $has_clip) {
+        paste $parsed.target
+      } else if (not $has_source) and (not $has_from) and $has_clip {
+        paste $parsed.target --clipboard
+      } else if (not $has_source) and $has_from and (not $has_clip) {
+        paste $parsed.target --from-hash $parsed.from_hash
+      } else if (not $has_source) and $has_from and $has_clip {
+        paste $parsed.target --from-hash $parsed.from_hash --clipboard
+      } else if $has_source and (not $has_from) and (not $has_clip) {
+        paste $parsed.target --source $parsed.source
+      } else if $has_source and (not $has_from) and $has_clip {
+        paste $parsed.target --source $parsed.source --clipboard
+      } else if $has_source and $has_from and (not $has_clip) {
+        paste $parsed.target --source $parsed.source --from-hash $parsed.from_hash
       } else {
-        # Normal argument-based dispatch
-        if ($parsed.source | is-empty) {
-          if ($parsed.clipboard) {
-            paste $parsed.target --clipboard
-          } else {
-            paste $parsed.target
-          }
-        } else {
-          if ($parsed.clipboard) {
-            paste $parsed.target --source $parsed.source --clipboard
-          } else {
-            paste $parsed.target --source $parsed.source
-          }
-        }
+        paste $parsed.target --source $parsed.source --from-hash $parsed.from_hash --clipboard
       }
     }
   } else if ($cmd == "source") {
-    # If called as just `snip source`, show list
+    # Support sugar: `snip source` and `snip source --from-hash <hash>`
     if ($rest | is-empty) {
-      list-sources
-      | select name
-      | rename source
+      list-sources | select name | rename source
     } else {
-      error make { msg: "Invoke subcommands directly: snip 'source ls|rm|new' ..." }
+      mut from_hash = ""
+      mut idx = 0
+      loop {
+        if $idx >= ($rest | length) { break }
+        let token = ($rest | get $idx)
+        if ($token == "--from-hash") {
+          if ($idx + 1) >= ($rest | length) { error make { msg: "--from-hash requires a value." } }
+          $from_hash = ($rest | get ($idx + 1))
+          $idx = $idx + 2
+          continue
+        }
+        error make { msg: $"Unknown argument ($token)." }
+      }
+      if ($from_hash | is-empty) {
+        list-sources | select name | rename source
+      } else {
+        history get-sources-at-commit $from_hash | select name | rename source
+      }
     }
   } else {
     error make { msg: $"Unknown snip subcommand '($cmd)'." }
@@ -257,6 +284,8 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #   update <name>      Update an existing snippet's commands
 #   rm <name>          Remove a snippet by name or index
 #   paste <name>       Stage the snippet in the REPL buffer and/or clipboard
+#   pick               Select snippet interactively with fzf
+#   config             Show effective configuration and environment
 #   history            Show Git history of changes
 #   history revert     Revert snippets to a specific commit
 #   source ls          List registered snippet source files
@@ -272,13 +301,20 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #   snip history revert a3c4d5f
 export def --env main [
   subcommand: string = "ls",
+  --from-hash: string = "",
   ...args: string
 ] {
   let stdin = $in
-  if ($stdin | is-empty) {
-    snip-dispatch $subcommand $args
+  let forwarded_args = if ($from_hash | is-empty) {
+    $args
   } else {
-    $stdin | snip-dispatch $subcommand $args
+    [ "--from-hash" $from_hash ] | append $args
+  }
+
+  if ($stdin | is-empty) {
+    snip-dispatch $subcommand $forwarded_args
+  } else {
+    $stdin | snip-dispatch $subcommand $forwarded_args
   }
 }
 
@@ -289,6 +325,5 @@ export-env {
   list-sources | ignore
 
   # Initialize git repo for history tracking
-  use history.nu
   history init-git-repo | ignore
 }

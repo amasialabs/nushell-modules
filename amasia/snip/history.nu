@@ -84,8 +84,8 @@ export def get-history [--limit: int = 20] {
 
   cd $snip_dir
 
-  # Get commit history with formatting
-  let log = (^git log --oneline -n $limit --pretty=format:"%h|%ai|%s")
+  # Get commit history separated by TAB (safe enough and easily split)
+  let log = (^git log --oneline -n $limit --pretty=format:"%h%x09%ai%x09%s")
 
   if ($log | str trim | is-empty) {
     return []
@@ -94,7 +94,7 @@ export def get-history [--limit: int = 20] {
   $log
   | lines
   | each {|line|
-    let parts = ($line | split column "|")
+    let parts = ($line | split column (char tab))
     if ($parts | length) >= 1 {
       let row = ($parts | first)
       {
