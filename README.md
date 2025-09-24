@@ -5,11 +5,11 @@ A simple snippet manager for [Nushell](https://www.nushell.sh/) that helps you o
 ## Features
 
 - **Organize snippets** in multiple source files
-- **Run instantly** - execute snippets immediately, no file editing needed
+- **Run instantly** — execute snippets immediately, no file editing needed
 - **Quick access** by name or index
 - **Smart clipboard** integration
 - **Git history** tracking with time-travel support
-- **Pipe-friendly** - works with stdin/stdout
+- **Pipe-friendly** — works with stdin/stdout
 - **Multiple sources** for different contexts
 
 ## Quick Start
@@ -19,12 +19,16 @@ A simple snippet manager for [Nushell](https://www.nushell.sh/) that helps you o
 ```nu
 # One-line install
 http get https://raw.githubusercontent.com/amasialabs/nushell-modules/main/install.nu | nu -c $in
-
+```
+```nu
 # For first-time installation, source the config
 source "~/.amasia/nushell/config.nu"
-
+```
+```nu
+# Do not forget
 use amasia/snip
-
+```
+```nu
 # Verify installation
 snip ls
 # Output: Shows the default hello-world snippet
@@ -198,17 +202,17 @@ snip history revert a3c4d5f --message "Restore working deployment scripts"
 
 ### Snippet Commands
 
-| Command               | Description               | Example                                               |
-|-----------------------|---------------------------|-------------------------------------------------------|
-| `snip ls`             | List all snippets         | `snip ls`                                             |
+| Command               | Description               | Example                                        |
+|-----------------------|---------------------------|------------------------------------------------|
+| `snip ls`             | List all snippets         | `snip ls`                                      |
 | `snip new`            | Create new snippet        | `snip new test --commands ["echo test"]`       |
 | `snip update`         | Update snippet            | `snip update test --commands ["echo updated"]` |
-| `snip rm`             | Remove snippet(s)         | `snip rm test` or `["a", "b"] \| snip rm`             |
-| `snip run`            | Execute snippet           | `snip run test` or `echo "test" \| snip run`          |
-| `snip show`           | Show snippet details      | `snip show test`                                      |
-| `snip paste`          | Paste to buffer/clipboard | `snip paste test -c`                                  |
-| `snip history`        | Show Git history          | `snip history --limit 20`                             |
-| `snip history revert` | Revert to commit          | `snip history revert a3c4d5f`                         |
+| `snip rm`             | Remove snippet(s)         | `snip rm test` or `["a", "b"] \| snip rm`      |
+| `snip run`            | Execute snippet           | `snip run test` or `echo "test" \| snip run`   |
+| `snip show`           | Show snippet details      | `snip show test`                               |
+| `snip paste`          | Paste to buffer/clipboard | `snip paste test -c`                           |
+| `snip history`        | Show Git history          | `snip history --limit 20`                      |
+| `snip history revert` | Revert to commit          | `snip history revert a3c4d5f`                  |
 
 ### Source Commands
 
