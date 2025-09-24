@@ -9,7 +9,7 @@ export use files.nu ["source rm" "source ls" "source new"]
 
 # Export snippet runner commands
 use runner.nu
-export use runner.nu ["ls" "run" "show" "paste"]
+export use runner.nu ["ls" "run" "show" "paste" "pick"]
 
 # Export snippet authoring commands
 use editor.nu
@@ -17,6 +17,8 @@ export use editor.nu ["new" "update" "rm"]
 
 # Export history command
 use history.nu
+
+# Show git history of snippet changes
 export def "history" [--limit: int = 20] {
   history get-history --limit $limit
 }

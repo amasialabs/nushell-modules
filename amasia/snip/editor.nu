@@ -56,6 +56,7 @@ def format-snippets-nuon [entries: list<record>] {
   $parts | str join "\n"
 }
 
+# Create a new snippet
 export def --env "new" [
   name?: string,                   # snippet name (positional argument)
   --commands: list<string> = [],  # empty list means use stdin
@@ -195,7 +196,7 @@ export def --env "new" [
   print $"Added snippet '($trimmed_name)' to source '($target.name)'"
 }
 
-# Update an existing snippet's commands
+# Update an existing snippet
 export def --env "update" [
   name?: string,                   # snippet name (positional argument)
   --commands: list<string> = [],  # new commands (empty list means use stdin)
