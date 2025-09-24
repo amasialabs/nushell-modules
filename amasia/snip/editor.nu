@@ -163,6 +163,134 @@ export def --env "new" [
   print $"Added snippet '($trimmed_name)' to source '($target.name)'"
 }
 
+# Update an existing snippet's commands
+export def --env "update" [
+  --name: string,                # name of snippet to update
+  --commands: list<string> = [],  # new commands (empty list means use stdin)
+  --source: string = "",         # source file to update in
+  --description: string = ""     # optional new description
+] {
+  # Capture stdin immediately for commands
+  let stdin_input = $in
+
+  let trimmed_name = ($name | into string | str trim)
+  if ($trimmed_name | str length) == 0 {
+    error make { msg: "--name must not be empty" }
+  }
+
+  # Get commands from argument or stdin
+  let raw_commands = if ($commands | is-empty) {
+    if ($stdin_input | is-empty) {
+      error make { msg: "--commands is required (either as argument or piped input)" }
+    }
+    # If stdin is a string, treat it as a single command
+    # If stdin is a list, use it as commands
+    let stdin_type = ($stdin_input | describe)
+    if ($stdin_type == "string") {
+      [$stdin_input]
+    } else if ($stdin_type | str starts-with "list") {
+      $stdin_input
+    } else {
+      error make { msg: "Piped input must be a string or list of strings" }
+    }
+  } else {
+    $commands
+  }
+
+  # Normalize commands: trim each item and drop empties
+  let normalized_commands = ($raw_commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 })
+  if (($normalized_commands | length) == 0) {
+    error make { msg: "Commands cannot be empty" }
+  }
+
+  let sources = (list-sources)
+  if (($sources | length) == 0) {
+    error make { msg: "No snippet sources are registered." }
+  }
+
+  # Find the source containing the snippet
+  let all_snippets = (
+    $sources
+    | each {|src|
+      let path = (snip-source-path $src.name)
+      if ($path | path exists) {
+        let raw = (try { open $path --raw } catch { "" })
+        if ($raw | str trim | is-empty) {
+          []
+        } else {
+          let parsed = (try { $raw | from nuon } catch { [] })
+          $parsed | each {|snip| $snip | insert source_name $src.name | insert source_path $path }
+        }
+      } else {
+        []
+      }
+    }
+    | flatten
+  )
+
+  # Find the snippet to update
+  let matches = if ($source | str length) > 0 {
+    $all_snippets | where {|s| $s.name == $trimmed_name and $s.source_name == $source }
+  } else {
+    $all_snippets | where name == $trimmed_name
+  }
+
+  if (($matches | length) == 0) {
+    error make { msg: $"Snippet '($trimmed_name)' not found" }
+  } else if (($matches | length) > 1) {
+    error make { msg: $"Multiple snippets found with name '($trimmed_name)'. Use --source to disambiguate." }
+  }
+
+  let target_snippet = ($matches | first)
+  let source_path = $target_snippet.source_path
+
+  # Read and parse the source file
+  let raw_content = (try {
+    open $source_path --raw
+  } catch {
+    let err_msg = (try { $in.msg } catch { "" })
+    let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+    error make { msg: $"Failed to read snippets from ($source_path).$suffix" }
+  })
+
+  let entries = if ($raw_content | str trim | is-empty) {
+    []
+  } else {
+    (try {
+      $raw_content | from nuon
+    } catch {
+      let err_msg = (try { $in.msg } catch { "" })
+      let suffix = if ($err_msg | str length) == 0 { "" } else { $" ($err_msg)" }
+      error make { msg: $"Failed to parse snippets from ($source_path) as nuon.$suffix" }
+    })
+  }
+
+  # Update the snippet
+  let updated_entries = (
+    $entries
+    | each {|entry|
+      if $entry.name == $trimmed_name {
+        mut updated = $entry
+        $updated.commands = $normalized_commands
+        # Update description if provided
+        let trimmed_description = ($description | into string | str trim)
+        if ($trimmed_description | str length) > 0 {
+          $updated = ($updated | upsert description $trimmed_description)
+        }
+        $updated
+      } else {
+        $entry
+      }
+    }
+  )
+
+  # Save the updated file
+  (format-snippets-nuon $updated_entries)
+  | save -f --raw $source_path
+
+  print $"Updated snippet '($trimmed_name)' in source '($target_snippet.source_name)'"
+}
+
 # Remove a snippet by name or index; optional --source when names collide
 export def --env "rm" [
   target?: string,           # snippet name or index (optional, can be piped)

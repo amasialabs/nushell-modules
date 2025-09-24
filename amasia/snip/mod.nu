@@ -13,7 +13,7 @@ export use runner.nu ["ls" "run" "show" "paste"]
 
 # Export snippet authoring commands
 use editor.nu
-export use editor.nu ["new" "rm"]
+export use editor.nu ["new" "update" "rm"]
 
 # Parse target argument and optional --source flag
 def parse-target-args [args: list<string>] {
