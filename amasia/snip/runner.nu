@@ -1,6 +1,7 @@
 # Snip execution and display logic
 
 use storage.nu [list-sources snip-source-path]
+use history.nu [get-file-at-commit get-sources-at-commit]
 
 # Try a single clipboard command and return status
 def try-clipboard-command [text: string, command: string, desc: string, args: list<string> = []] {
@@ -74,6 +75,91 @@ def copy-to-clipboard [text: string] {
 }
 
 
+
+# Load all snippets from a specific commit
+def load-all-snip-at-commit [hash: string] {
+  let sources = (get-sources-at-commit $hash)
+
+  if ($sources | is-empty) {
+    return []
+  }
+
+  $sources
+  | each {|source|
+    let filename = $"($source.name).nuon"
+    let parsed = (get-file-at-commit $hash $filename)
+
+    if ($parsed | is-empty) {
+      []
+    } else {
+      $parsed
+      | enumerate
+      | each {|entry|
+        let snip = $entry.item
+        let idx = $entry.index
+
+        let snip_type = ($snip | describe)
+        if ($snip_type | str starts-with "record<") == false {
+          error make { msg: $"Entry ($idx) in ($source.name) at commit ($hash) must be a record." }
+        }
+
+        let has_name = ($snip | columns | any {|c| $c == "name" })
+        if $has_name == false {
+          error make { msg: $"Entry ($idx) in ($source.name) at commit ($hash) is missing the 'name' field." }
+        }
+
+        let has_commands = ($snip | columns | any {|c| $c == "commands" })
+        if $has_commands == false {
+          error make { msg: $"Entry ($idx) in ($source.name) at commit ($hash) is missing the 'commands' field." }
+        }
+
+        let name = ($snip.name | into string | str trim)
+        if ($name | str length) == 0 {
+          error make { msg: $"Entry ($idx) in ($source.name) at commit ($hash) has an empty 'name' field." }
+        }
+
+        let raw_commands = $snip.commands
+        let commands_desc = ($raw_commands | describe)
+
+        let commands_list = if ($commands_desc | str starts-with "list<string") {
+          $raw_commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 }
+        } else {
+          error make { msg: $"Entry '($name)' in ($source.name) at commit ($hash) must use 'commands' as list<string>." }
+        }
+
+        let command_text = ($commands_list | str join "\n")
+
+        if ($command_text | str length) == 0 {
+          error make { msg: $"Entry '($name)' in ($source.name) at commit ($hash) has empty 'commands'." }
+        }
+
+        let description = if ($snip | columns | any {|c| $c == "description" }) {
+          let desc_val = $snip.description
+          let desc_desc = ($desc_val | describe)
+
+          if $desc_desc == "string" {
+            $desc_val
+          } else if ($desc_desc | str starts-with "list<string") {
+            $desc_val | str join " "
+          } else {
+            error make { msg: $"Entry '($name)' in ($source.name) at commit ($hash) must use 'description' as string or list<string>." }
+          }
+        } else {
+          ""
+        }
+
+        {
+          name: $name,
+          command: $command_text,
+          commands: $commands_list,
+          description: $description,
+          source_name: $source.name
+        }
+      }
+    }
+  }
+  | flatten
+}
 
 # Load all snip from all source files
 def load-all-snip [] {
@@ -186,17 +272,30 @@ def load-all-snip [] {
 }
 
 # List all available snippets
-export def --env "ls" [] {
-  load-all-snip | select name commands source_name | rename name commands source
+export def --env "ls" [
+  --from-hash: string = ""  # load snippets from a specific commit hash
+] {
+  let snippets = if ($from_hash | is-empty) {
+    load-all-snip
+  } else {
+    load-all-snip-at-commit $from_hash
+  }
+
+  $snippets | select name commands source_name | rename name commands source
 }
 
 
 # Get a specific snippet by name or row index; optional disambiguation by source id
 def get [
   target: string,           # snippet name or numeric row index from `ls`
-  --source: string = ""  # disambiguate when multiple names exist
+  --source: string = "",  # disambiguate when multiple names exist
+  --from-hash: string = ""  # load snippets from a specific commit hash
 ] {
-  let snip = load-all-snip
+  let snip = if ($from_hash | is-empty) {
+    load-all-snip
+  } else {
+    load-all-snip-at-commit $from_hash
+  }
 
   # Treat as index only if target is strictly digits
   let target_trim = ($target | str trim)
@@ -241,7 +340,8 @@ export def --env "paste" [
   target?: string,           # snippet name or row index (optional, can be piped)
   --source: string = "",  # disambiguate when names collide
   --clipboard(-c),           # copy only to clipboard
-  --both(-b)                 # send to command line and clipboard
+  --both(-b),                 # send to command line and clipboard
+  --from-hash: string = ""  # load snippets from a specific commit hash
 ] {
   # Capture stdin immediately before optional parameters consume it
   let stdin_input = $in
@@ -260,7 +360,7 @@ export def --env "paste" [
     $target
   }
 
-  let snip = (get $actual_target --source $source)
+  let snip = (get $actual_target --source $source --from-hash $from_hash)
   let text = $snip.command
 
   let do_clipboard = ($clipboard or $both)
@@ -302,7 +402,8 @@ export def --env "paste" [
 # Execute a snippet by name
 export def "run" [
   target?: string,           # snip name or row index (optional, can be piped)
-  --source: string = ""   # disambiguate when names collide
+  --source: string = "",   # disambiguate when names collide
+  --from-hash: string = ""  # load snippets from a specific commit hash
 ] {
   # Capture stdin immediately before optional parameters consume it
   let stdin_input = $in
@@ -317,7 +418,7 @@ export def "run" [
     $target
   }
 
-  let snip = (get $actual_target --source $source)
+  let snip = (get $actual_target --source $source --from-hash $from_hash)
   if (not ($snip | columns | any {|c| $c == "commands" })) {
     # Fallback: execute joined text
     nu -c $snip.command
@@ -331,7 +432,8 @@ export def "run" [
 # Show snippet details
 export def "show" [
   target?: string,           # snip name or row index (optional, can be piped)
-  --source: string = ""   # disambiguate when names collide
+  --source: string = "",   # disambiguate when names collide
+  --from-hash: string = ""  # load snippets from a specific commit hash
 ] {
   # Capture stdin immediately before optional parameters consume it
   let stdin_input = $in
@@ -346,7 +448,7 @@ export def "show" [
     $target
   }
 
-  let snip = (get $actual_target --source $source)
+  let snip = (get $actual_target --source $source --from-hash $from_hash)
   let desc = ($snip.description? | default "")
 
   mut rows = []

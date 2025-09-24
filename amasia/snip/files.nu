@@ -1,7 +1,7 @@
 # amasia/snip/files.nu - file management commands
 
 use storage.nu [list-sources save-snip-sources snip-source-path snip-default-name]
-use history.nu [commit-changes init-git-repo]
+use history.nu [commit-changes init-git-repo get-sources-at-commit]
 
 # Validate that a snippets file is in our expected shape and collect duplicate names
 def validate-snip-file [p: string] {
@@ -130,8 +130,16 @@ export def --env "source new" [
 }
 
 # List configured snip sources
-export def --env "source ls" [] {
-  list-sources
+export def --env "source ls" [
+  --from-hash: string = ""  # load sources from a specific commit hash
+] {
+  let sources = if ($from_hash | is-empty) {
+    list-sources
+  } else {
+    get-sources-at-commit $from_hash
+  }
+
+  $sources
   | select name
   | rename source
 }

@@ -21,6 +21,14 @@ export def "history" [--limit: int = 20] {
   history get-history --limit $limit
 }
 
+# Revert snippets to a specific commit
+export def "history revert" [
+  hash: string,             # commit hash to revert to
+  --message: string = ""    # custom commit message
+] {
+  history revert-to-commit $hash --message $message
+}
+
 # Parse target argument and optional --source flag
 def parse-target-args [args: list<string>] {
   if ($args | is-empty) {

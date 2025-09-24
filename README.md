@@ -1,138 +1,342 @@
-# Amasia Nushell Modules
+# Amasia Snip
 
-A set of Nushell modules for curating and running reusable command snippets. The project currently ships the `snip` module.
+A simple snippet manager for [Nushell](https://www.nushell.sh/) that helps you organize, run, and share reusable commands with Git-based version control.
 
-## Table of Contents
-- [Installation](#installation)
-- [Module Guide](#module-guide)
-  - [snip](#snip)
-- [Usage Examples](#usage-examples)
-  - [Source Management](#source-management)
-  - [Finding & Running Snippets](#finding--running-snippets)
-- [Snippet File Format](#snippet-file-format)
-- [Data Storage](#data-storage)
-- [Future Plans](#future-plans)
-- [Contributing](#contributing)
-- [License](#license)
+## Features
 
-## Installation
+- **Organize snippets** in multiple source files
+- **Run instantly** - execute snippets immediately, no file editing needed
+- **Quick access** by name or index
+- **Smart clipboard** integration
+- **Git history** tracking with time-travel support
+- **Pipe-friendly** - works with stdin/stdout
+- **Multiple sources** for different contexts
 
-Run the installer (requires Nushell ≥0.85 and git):
+## Quick Start
+
+### Installation
+
 ```nu
+# One-line install
 http get https://raw.githubusercontent.com/amasialabs/nushell-modules/main/install.nu | nu -c $in
-```
-The script installs modules under `$nu.home-path/.amasia/nushell/modules`, writes `$nu.home-path/.amasia/nushell/config.nu`, and ensures your Nushell config sources that file. It also adds the modules path to `$env.NU_LIB_DIRS`. After reloading your config, import the snippets module explicitly:
-```nu
+
+# For first-time installation, source the config
+source "~/.amasia/nushell/config.nu"
+
 use amasia/snip
-```
-If the installer prints a `source` command, run it first and then execute `use amasia/snip` in that session; restarting Nushell achieves the same result.
 
-## Module Guide
-
-
-### snip
-
-Import with `use amasia/snip` to expose the following commands:
-- `snip source ls` — List all source files in the snip directory.
-- `snip source rm <name>` — Remove a source file by name (cannot remove default).
-- `snip source new <name>` — Create a new empty snippets file.
-- `snip ls` — Show every snippet aggregated from all sources.
-- `snip show <name|index> [--source <name>]` — Inspect the snippet as a two-column table of fields and values.
-- `snip run <name|index> [--source <name>]` — Execute the snippet in a fresh Nushell process.
-- `snip new --name <value> --commands [<cmd1> <cmd2> ...] [--source <name>]` — Create a snippet with one or more commands in the default or selected source.
-- `snip rm <name|index> [--source <name>]` — Remove a snippet by name or ls index.
-- `snip paste <name|index> [--source <name>] [flags]` — Drop the command into the current buffer and/or clipboard.
-
-All commands accept either a snippet name or the zero-based index returned by `snip ls`. Use `--source` when names collide across files.
-
-## Usage Examples
-
-### Source Management
-```nu
-# Create a new snippets source file
-snip source new mypack
-
-# List all source files
-snip source ls
-
-# Remove a source by name (cannot remove default)
-snip source rm mypack
-```
-
-### Finding & Running Snippets
-```nu
-# List everything with friendly indexes
+# Verify installation
 snip ls
-
-# Show the command body for the first entry
-snip show 0
-
-# Run a named snippet, disambiguating by source when necessary
-snip run deploy --source mypack
-
-# Move a snippet into the command line buffer and clipboard
-snip paste 2 --both
+# Output: Empty table or existing snippets if you had them before
 ```
 
-### Authoring Snippets
+### Your First Snippet
+
 ```nu
-# Add a snippet to the default source
-snip new --name greet --commands ["echo 'Hello from Nu'"]
+# Create a snippet
+snip new --name hello --commands ["echo 'Hello, Nushell!'"]
+# Output: Added snippet 'hello' to source 'default'
 
-# Add a multi-command snippet to a specific source
-snip new --name deploy --commands ["git pull" "npm run deploy"] --source mypack
+# Run it
+snip run hello
+# Output: Hello, Nushell!
 
-# Remove a snippet
-snip rm greet
+# List all snippets
+snip ls
+╭───┬─────────┬────────────────────────────┬─────────╮
+│ # │  name   │         commands           │ source  │
+├───┼─────────┼────────────────────────────┼─────────┤
+│ 0 │ hello   │ ["echo 'Hello, Nushell!'"] │ default │
+╰───┴─────────┴────────────────────────────┴─────────╯
 ```
 
-## Snippet File Format
+## 📚 Core Commands
 
-Snippet files are written in NuON. Each file must evaluate to a list of records with at least a `name` and `commands` field:
+### Managing Snippets
 
-```nuon
-[
-  {
-    name: "deploy",
-    description: "Restart the web service",
-    commands: [
-      "git pull",
-      "npm run deploy"
-    ]
-  },
-  {
-    name: "hello-world",
-    commands: ["echo 'Hello, world!'"]
-  }
+```nu
+# Create snippets with multiple commands
+snip new --name deploy --commands [
+  "git pull"
+  "npm install"
+  "npm run build"
+] --description "Deploy the application"
+
+# Update existing snippet
+snip update --name deploy --commands ["git pull" "npm run deploy"]
+
+# Remove snippet
+snip rm deploy
+
+# Batch remove with pipe
+["old-snippet1" "old-snippet2"] | snip rm
+```
+
+### Running & Using Snippets
+
+```nu
+# Run by name
+snip run deploy
+
+# Run by index (from snip ls output)
+snip run 0
+
+# Show snippet details
+snip show deploy
+╭───────────────┬──────────────────────────────────────╮
+│ Name          │ deploy                               │
+│ Description   │ Deploy the application               │
+│ Command       │ git pull                             │
+│               │ npm install                          │
+│               │ npm run build                        │
+│ Source        │ default                              │
+╰───────────────┴──────────────────────────────────────╯
+
+# Paste to command line
+snip paste deploy         # → command line buffer
+snip paste deploy -c       # → clipboard only
+snip paste deploy -b       # → both buffer and clipboard
+```
+
+## Advanced Usage
+
+### Working with Sources
+
+Sources let you organize snippets by context (work, personal, project-specific):
+
+```nu
+# Create a new source
+snip source new work
+
+# Add snippet to specific source
+snip new --name ssh-prod --commands ["ssh user@prod.example.com"] --source work
+
+# List sources
+snip source ls
+╭───┬─────────╮
+│ # │ source  │
+├───┼─────────┤
+│ 0 │ default │
+│ 1 │ work    │
+╰───┴─────────╯
+
+# Remove source (cannot remove default)
+snip source rm work
+```
+
+### Pipe Support
+
+All commands work with pipes for powerful workflows:
+
+```nu
+# Create snippet from command output
+"ls -la" | snip new --name list-all
+
+# Create from history
+history | last 5 | get command | snip new --name recent-commands
+
+# Run snippet from selection
+snip ls | where source == "work" | get name | first | snip run
+
+# Update from pipe
+echo "pwd" | snip update --name show-dir
+
+# Interactive selection (with fzf)
+snip ls | get name | str join (char nl) | fzf | snip run
+
+# Batch operations
+["old-snippet1" "old-snippet2" "old-snippet3"] | snip rm
+
+# Filter and process
+snip ls | where name =~ "deploy" | each {|s| snip show $s.name }
+```
+
+### Git History
+
+Every change is automatically tracked in Git:
+
+```nu
+# View history
+snip history
+╭───┬─────────┬───────────────────────────┬────────────────────────────╮
+│ # │  hash   │           date            │         message            │
+├───┼─────────┼───────────────────────────┼────────────────────────────┤
+│ 0 │ a3c4d5f │ 2025-09-24 15:30:00 +0400 │ Update snippet: deploy     │
+│ 1 │ b2e3f6g │ 2025-09-24 15:25:00 +0400 │ Add snippet: deploy in     │
+│   │         │                           │ default                    │
+│ 2 │ c1d2e3f │ 2025-09-24 15:20:00 +0400 │ Initial commit: existing   │
+│   │         │                           │ snippets                   │
+╰───┴─────────┴───────────────────────────┴────────────────────────────╯
+
+# Limit history output
+snip history --limit 10
+
+# View snippets from a specific commit
+snip ls --from-hash b2e3f6g
+
+# Run a snippet as it was at a specific commit
+snip run deploy --from-hash b2e3f6g
+
+# Show snippet details from history
+snip show deploy --from-hash c1d2e3f
+
+# Paste a historical snippet
+snip paste ssh-prod --from-hash a3c4d5f -c
+
+# View sources at a specific commit
+snip source ls --from-hash b2e3f6g
+
+# Revert all snippets to a previous state
+snip history revert a3c4d5f
+# Output: Reverted snippets to commit a3c4d5f
+
+# Revert with custom message
+snip history revert a3c4d5f --message "Restore working deployment scripts"
+```
+
+## Command Reference
+
+### Snippet Commands
+
+| Command               | Description               | Example                                               |
+|-----------------------|---------------------------|-------------------------------------------------------|
+| `snip ls`             | List all snippets         | `snip ls`                                             |
+| `snip new`            | Create new snippet        | `snip new --name test --commands ["echo test"]`       |
+| `snip update`         | Update snippet            | `snip update --name test --commands ["echo updated"]` |
+| `snip rm`             | Remove snippet(s)         | `snip rm test` or `["a", "b"] \| snip rm`             |
+| `snip run`            | Execute snippet           | `snip run test` or `echo "test" \| snip run`          |
+| `snip show`           | Show snippet details      | `snip show test`                                      |
+| `snip paste`          | Paste to buffer/clipboard | `snip paste test -c`                                  |
+| `snip history`        | Show Git history          | `snip history --limit 20`                             |
+| `snip history revert` | Revert to commit          | `snip history revert a3c4d5f`                         |
+
+### Source Commands
+
+| Command           | Description   | Example                    |
+|-------------------|---------------|----------------------------|
+| `snip source ls`  | List sources  | `snip source ls`           |
+| `snip source new` | Create source | `snip source new personal` |
+| `snip source rm`  | Remove source | `snip source rm personal`  |
+
+### Command Flags
+
+- `--source <name>` - Specify a source file (for new, update, run, show, paste)
+- `--description <text>` - Add description (for new, update)
+- `--clipboard / -c` - Copy to clipboard (for paste)
+- `--both / -b` - Copy to both buffer and clipboard (for paste)
+- `--limit <n>` - Limit output rows (for history)
+- `--from-hash <hash>` - Load snippets from a specific commit (for ls, show, run, paste, source ls)
+
+## Tips & Tricks
+
+### 1. Quick Command Capture
+```nu
+# Save last command as snippet
+history | last 1 | get command | snip new --name last-cmd
+```
+
+### 2. Project-Specific Snippets
+```nu
+# Create project source
+snip source new myproject
+
+# Add project commands
+snip new --name test --commands ["cargo test"] --source myproject
+snip new --name build --commands ["cargo build --release"] --source myproject
+```
+
+### 3. Multi-Command Workflows
+```nu
+# Complex deployment
+snip new --name deploy-full --commands [
+  "git stash"
+  "git pull origin main"
+  "git stash pop"
+  "docker-compose down"
+  "docker-compose build"
+  "docker-compose up -d"
+  "docker-compose logs -f"
+]
+
+# Secure SSH with password manager
+snip new --name ssh-secure --commands [
+  "pass -c 'servers/production/admin'"  # Copy password to clipboard
+  "env LANG=en_US.UTF-8 ssh -o PreferredAuthentications=password admin@server.example.com"
+  "'' | pbcopy"  # Clear clipboard after login
 ]
 ```
 
-- `name` is trimmed before use and must be unique per file.
-- `commands` is a list of strings; they are joined with newlines before execution.
-- `description` is optional and can be a string or list of strings (joined with spaces).
+### 4. Filter and Execute
+```nu
+# Run all test-related snippets
+snip ls | where name =~ "test" | each { |it| snip run $it.name }
 
-Additional fields are ignored for now but preserved in case the file is edited by hand.
+# Copy all work snippets to clipboard
+snip ls | where source == "work" | each { |it| snip paste $it.name -c }
+```
 
-## Data Storage
+## 📁 Data Storage
 
-- Snippet data lives under `$nu.home-path/.amasia/nushell/data/snip`.
-- All `.nuon` files in this directory are automatically treated as sources.
-- Default snippets pack: `($nu.home-path | path join ".amasia" "nushell" "data" "snip" "default.nuon")`.
-- Sources are discovered by scanning the directory on each operation; no separate config file needed.
+All snippet data is stored in:
+```
+~/.amasia/nushell/data/snip/
+├── .git/           # Git history
+├── default.nuon    # Default snippets
+├── work.nuon       # Work snippets (example)
+└── *.nuon          # Other source files
+```
 
-## Future Plans
+## Troubleshooting
 
-- [ ] Interactive snippet selector with fuzzy search
-- [ ] Snippet parameters/templates
-- [ ] Export/import functionality
-- [ ] Snippet categories and tags
-- [ ] Integration with external snippet managers
-- [ ] Interactive run mode (-i): mixed execution with in-session steps using markers (prefix `paste:` or suffix `#@paste`). Annotated steps are staged into the current REPL and followed by automatic continuation via `snip resume <token>`; non-annotated steps run in isolated `nu -c` subprocesses.
+### Common Issues
 
-## Contributing
+1. **Module is not found after installation**
+   ```nu
+   # Ensure the module is in the right path
+   ls ~/.amasia/nushell/modules/amasia/snip/
 
-Feel free to submit issues and enhancement requests!
+   # Reload your config
+   source $nu.config-path
+   ```
+
+2. **Git history is not working**
+   ```nu
+   # Check if Git is installed
+   which git
+
+   # Reinitialize if needed
+   cd ~/.amasia/nushell/data/snip
+   git init
+   ```
+
+3. **Clipboard paste is not working**
+   - **macOS**: Ensure `pbcopy` is available
+   - **Linux**: Install `xclip` or `wl-clipboard`
+   - **Windows**: Uses built-in clipboard
+
+4. **Snippet with spaces in commands**
+   ```nu
+   # Use list syntax for complex commands
+   snip new --name backup --commands [
+     "tar -czf backup.tar.gz ."
+     "mv backup.tar.gz ~/backups/"
+   ]
+   ```
+
+## Why Git History?
+
+Every change to your snippets is automatically committed to a local Git repository. This provides:
+
+- **Safety**: Never lose a snippet accidentally
+- **History**: See when and what changed
+- **Recovery**: Restore deleted or modified snippets
+- **Collaboration**: Share your snippets repo with your team
+
+```nu
+# View what changed recently
+snip history --limit 5
+```
 
 ## License
 
-[Your license here]
+MIT

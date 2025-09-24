@@ -134,3 +134,145 @@ export def make-commit-message [action: string, name: string, source: string = "
     $"($action): ($name) in ($source)"
   }
 }
+
+# Get snippet file content at a specific commit
+export def get-file-at-commit [hash: string, filename: string] {
+  if not (git-available) {
+    error make { msg: "Git is not available" }
+  }
+
+  let paths = (ensure-snip-paths)
+  let snip_dir = $paths.snip_dir
+
+  if not (is-git-repo $snip_dir) {
+    error make { msg: "Not a git repository" }
+  }
+
+  cd $snip_dir
+
+  # Check if the commit hash exists
+  let commit_exists = (try {
+    ^git rev-parse $"($hash)^{commit}" | complete | get exit_code
+  } catch { 1 }) == 0
+
+  if not $commit_exists {
+    error make { msg: $"Commit hash '($hash)' not found" }
+  }
+
+  # Get file content at specific commit
+  let result = (try {
+    ^git show $"($hash):($filename)" | complete
+  } catch {
+    { exit_code: 1, stdout: "", stderr: "File not found" }
+  })
+
+  if $result.exit_code != 0 {
+    # File doesn't exist at that commit, return empty list
+    return []
+  }
+
+  # Parse the content as nuon
+  try {
+    $result.stdout | from nuon
+  } catch {
+    []
+  }
+}
+
+# Get all snippet files at a specific commit
+export def get-sources-at-commit [hash: string] {
+  if not (git-available) {
+    error make { msg: "Git is not available" }
+  }
+
+  let paths = (ensure-snip-paths)
+  let snip_dir = $paths.snip_dir
+
+  if not (is-git-repo $snip_dir) {
+    error make { msg: "Not a git repository" }
+  }
+
+  cd $snip_dir
+
+  # Check if the commit hash exists
+  let commit_exists = (try {
+    ^git rev-parse $"($hash)^{commit}" | complete | get exit_code
+  } catch { 1 }) == 0
+
+  if not $commit_exists {
+    error make { msg: $"Commit hash '($hash)' not found" }
+  }
+
+  # Get list of .nuon files at that commit
+  let files = (^git ls-tree --name-only -r $hash | lines | where {|f| $f | str ends-with ".nuon"})
+
+  $files
+  | each {|file|
+    let name = ($file | path parse | get stem)
+    {
+      name: $name,
+      is_default: ($name == "default")
+    }
+  }
+  | sort-by name
+}
+
+# Revert snippets to a specific commit
+export def revert-to-commit [hash: string, --message: string = ""] {
+  if not (git-available) {
+    error make { msg: "Git is not available" }
+  }
+
+  let paths = (ensure-snip-paths)
+  let snip_dir = $paths.snip_dir
+
+  if not (is-git-repo $snip_dir) {
+    error make { msg: "Not a git repository" }
+  }
+
+  cd $snip_dir
+
+  # Check if the commit hash exists
+  let commit_exists = (try {
+    ^git rev-parse $"($hash)^{commit}" | complete | get exit_code
+  } catch { 1 }) == 0
+
+  if not $commit_exists {
+    error make { msg: $"Commit hash '($hash)' not found" }
+  }
+
+  # Get list of .nuon files at that commit
+  let files = (^git ls-tree --name-only -r $hash | lines | where {|f| $f | str ends-with ".nuon"})
+
+  # Get current files
+  let current_files = (glob "*.nuon" | each {|f| $f | path basename})
+
+  # Remove files that don't exist in target commit
+  for $current_file in $current_files {
+    if not ($files | any {|f| $f == $current_file}) {
+      rm $current_file
+    }
+  }
+
+  # Restore each file from the target commit
+  for $file in $files {
+    ^git show $"($hash):($file)" | save -f $file
+  }
+
+  # Commit the revert
+  let commit_msg = if ($message | is-empty) {
+    $"Revert snippets to commit ($hash)"
+  } else {
+    $message
+  }
+
+  # Check if there are changes
+  let status = (^git status --porcelain)
+  if not ($status | str trim | is-empty) {
+    ^git add -A
+    ^git commit -m $commit_msg --quiet
+    print $"Reverted snippets to commit ($hash)"
+  } else {
+    print $"No changes needed - already at commit ($hash)"
+  }
+}
