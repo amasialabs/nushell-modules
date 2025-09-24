@@ -281,7 +281,9 @@ export def --env "ls" [
     load-all-snip-at-commit $from_hash
   }
 
-  $snippets | select name commands source_name | rename name commands source
+  $snippets
+  | select name commands source_name
+  | rename name commands source
 }
 
 

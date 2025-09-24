@@ -281,22 +281,36 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 # Snip command-line entry point; dispatches to the exported subcommands.
 #
 # Subcommands:
-#   ls            List every snippet aggregated from all sources.
-#   show <name>   Display snippet details, optionally filtered by --source.
-#   run <name>    Execute the snippet in a fresh Nushell process.
-#   new           Create a snippet in the default or selected source file.
-#   paste <name>  Stage the snippet in the REPL buffer and/or clipboard.
-#   source *      Manage registered snippet source files.
+#   ls                 List every snippet aggregated from all sources
+#   show <name>        Display snippet details, optionally filtered by --source
+#   run <name>         Execute the snippet in a fresh Nushell process
+#   new <name>         Create a snippet in the default or selected source file
+#   update <name>      Update an existing snippet's commands
+#   rm <name>          Remove a snippet by name or index
+#   paste <name>       Stage the snippet in the REPL buffer and/or clipboard
+#   history            Show Git history of changes
+#   history revert     Revert snippets to a specific commit
+#   source ls          List registered snippet source files
+#   source new <name>  Create a new source file
+#   source rm <name>   Remove a source file
 #
 # Examples:
 #   snip ls
-#   snip run deploy --source 57e8a148
+#   snip new hello --commands ["echo 'Hello!'"]
+#   snip run deploy --source work
 #   snip paste demo --both
+#   snip history --limit 10
+#   snip history revert a3c4d5f
 export def --env main [
   subcommand: string = "ls",
   ...args: string
 ] {
-  $in | snip-dispatch $subcommand $args
+  let stdin = $in
+  if ($stdin | is-empty) {
+    snip-dispatch $subcommand $args
+  } else {
+    $stdin | snip-dispatch $subcommand $args
+  }
 }
 
 # Initialize environment on module load
