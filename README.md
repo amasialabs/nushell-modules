@@ -27,14 +27,14 @@ use amasia/snip
 
 # Verify installation
 snip ls
-# Output: Empty table or existing snippets if you had them before
+# Output: Shows the default hello-world snippet
 ```
 
 ### Your First Snippet
 
 ```nu
-# Create a snippet
-snip new --name hello --commands ["echo 'Hello, Nushell!'"]
+# Create a snippet (both forms work)
+snip new hello --commands ["echo 'Hello, Nushell!'"]
 # Output: Added snippet 'hello' to source 'default'
 
 # Run it
@@ -56,14 +56,14 @@ snip ls
 
 ```nu
 # Create snippets with multiple commands
-snip new --name deploy --commands [
+snip new deploy --commands [
   "git pull"
   "npm install"
   "npm run build"
 ] --description "Deploy the application"
 
 # Update existing snippet
-snip update --name deploy --commands ["git pull" "npm run deploy"]
+snip update deploy --commands ["git pull" "npm run deploy"]
 
 # Remove snippet
 snip rm deploy
@@ -109,7 +109,7 @@ Sources let you organize snippets by context (work, personal, project-specific):
 snip source new work
 
 # Add snippet to specific source
-snip new --name ssh-prod --commands ["ssh user@prod.example.com"] --source work
+snip new ssh-prod --commands ["ssh user@prod.example.com"] --source work
 
 # List sources
 snip source ls
@@ -130,16 +130,16 @@ All commands work with pipes for powerful workflows:
 
 ```nu
 # Create snippet from command output
-"ls -la" | snip new --name list-all
+"ls -la" | snip new list-all
 
 # Create from history
-history | last 5 | get command | snip new --name recent-commands
+history | last 5 | get command | snip new recent-commands
 
 # Run snippet from selection
 snip ls | where source == "work" | get name | first | snip run
 
 # Update from pipe
-echo "pwd" | snip update --name show-dir
+echo "pwd" | snip update show-dir
 
 # Interactive selection (with fzf)
 snip ls | get name | str join (char nl) | fzf | snip run
@@ -201,8 +201,8 @@ snip history revert a3c4d5f --message "Restore working deployment scripts"
 | Command               | Description               | Example                                               |
 |-----------------------|---------------------------|-------------------------------------------------------|
 | `snip ls`             | List all snippets         | `snip ls`                                             |
-| `snip new`            | Create new snippet        | `snip new --name test --commands ["echo test"]`       |
-| `snip update`         | Update snippet            | `snip update --name test --commands ["echo updated"]` |
+| `snip new`            | Create new snippet        | `snip new test --commands ["echo test"]`       |
+| `snip update`         | Update snippet            | `snip update test --commands ["echo updated"]` |
 | `snip rm`             | Remove snippet(s)         | `snip rm test` or `["a", "b"] \| snip rm`             |
 | `snip run`            | Execute snippet           | `snip run test` or `echo "test" \| snip run`          |
 | `snip show`           | Show snippet details      | `snip show test`                                      |
@@ -232,7 +232,7 @@ snip history revert a3c4d5f --message "Restore working deployment scripts"
 ### 1. Quick Command Capture
 ```nu
 # Save last command as snippet
-history | last 1 | get command | snip new --name last-cmd
+history | last 1 | get command | snip new last-cmd
 ```
 
 ### 2. Project-Specific Snippets
@@ -241,14 +241,14 @@ history | last 1 | get command | snip new --name last-cmd
 snip source new myproject
 
 # Add project commands
-snip new --name test --commands ["cargo test"] --source myproject
-snip new --name build --commands ["cargo build --release"] --source myproject
+snip new test --commands ["cargo test"] --source myproject
+snip new build --commands ["cargo build --release"] --source myproject
 ```
 
 ### 3. Multi-Command Workflows
 ```nu
 # Complex deployment
-snip new --name deploy-full --commands [
+snip new deploy-full --commands [
   "git stash"
   "git pull origin main"
   "git stash pop"
@@ -259,7 +259,7 @@ snip new --name deploy-full --commands [
 ]
 
 # Secure SSH with password manager
-snip new --name ssh-secure --commands [
+snip new ssh-secure --commands [
   "pass -c 'servers/production/admin'"  # Copy password to clipboard
   "env LANG=en_US.UTF-8 ssh -o PreferredAuthentications=password admin@server.example.com"
   "'' | pbcopy"  # Clear clipboard after login
@@ -317,7 +317,7 @@ All snippet data is stored in:
 4. **Snippet with spaces in commands**
    ```nu
    # Use list syntax for complex commands
-   snip new --name backup --commands [
+   snip new backup --commands [
      "tar -czf backup.tar.gz ."
      "mv backup.tar.gz ~/backups/"
    ]

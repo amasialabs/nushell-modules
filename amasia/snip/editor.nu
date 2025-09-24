@@ -57,7 +57,7 @@ def format-snippets-nuon [entries: list<record>] {
 }
 
 export def --env "new" [
-  --name: string,
+  name?: string,                   # snippet name (positional argument)
   --commands: list<string> = [],  # empty list means use stdin
   --source: string = "",
   --description: string = ""
@@ -65,9 +65,14 @@ export def --env "new" [
   # Capture stdin immediately
   let stdin_input = $in
 
+  # Get name from positional argument
+  if ($name | is-empty) {
+    error make { msg: "Snippet name is required" }
+  }
+
   let trimmed_name = ($name | into string | str trim)
   if ($trimmed_name | str length) == 0 {
-    error make { msg: "--name must not be empty" }
+    error make { msg: "Snippet name must not be empty" }
   }
 
   # Get commands from argument or stdin
@@ -192,7 +197,7 @@ export def --env "new" [
 
 # Update an existing snippet's commands
 export def --env "update" [
-  --name: string,                # name of snippet to update
+  name?: string,                   # snippet name (positional argument)
   --commands: list<string> = [],  # new commands (empty list means use stdin)
   --source: string = "",         # source file to update in
   --description: string = ""     # optional new description
@@ -200,9 +205,13 @@ export def --env "update" [
   # Capture stdin immediately for commands
   let stdin_input = $in
 
+  if ($name | is-empty) {
+    error make { msg: "Snippet name is required" }
+  }
+
   let trimmed_name = ($name | into string | str trim)
   if ($trimmed_name | str length) == 0 {
-    error make { msg: "--name must not be empty" }
+    error make { msg: "Snippet name must not be empty" }
   }
 
   # Get commands from argument or stdin
