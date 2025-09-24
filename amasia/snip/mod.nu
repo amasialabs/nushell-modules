@@ -15,6 +15,12 @@ export use runner.nu ["ls" "run" "show" "paste"]
 use editor.nu
 export use editor.nu ["new" "update" "rm"]
 
+# Export history command
+use history.nu
+export def "history" [--limit: int = 20] {
+  history get-history --limit $limit
+}
+
 # Parse target argument and optional --source flag
 def parse-target-args [args: list<string>] {
   if ($args | is-empty) {
@@ -290,4 +296,8 @@ export-env {
   # Sources are now stored persistently, no env variable needed
   # Just ensure the storage is initialized
   list-sources | ignore
+
+  # Initialize git repo for history tracking
+  use history.nu
+  history init-git-repo | ignore
 }

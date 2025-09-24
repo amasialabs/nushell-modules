@@ -1,6 +1,7 @@
 # amasia/snip/files.nu - file management commands
 
 use storage.nu [list-sources save-snip-sources snip-source-path snip-default-name]
+use history.nu [commit-changes init-git-repo]
 
 # Validate that a snippets file is in our expected shape and collect duplicate names
 def validate-snip-file [p: string] {
@@ -89,6 +90,10 @@ export def --env "source rm" [
   }
 
   rm $source_path
+
+  # Commit the change
+  commit-changes $"Remove source: ($name)"
+
   print $"Removed source '($name)'"
 }
 
@@ -117,6 +122,9 @@ export def --env "source new" [
   # Write empty relaxed NuON list
   "[]
 " | save -f --raw $target_path
+
+  # Commit the change
+  commit-changes $"Add source: ($stem)"
 
   print $"Created snip source '($stem)' at '($target_path)'."
 }

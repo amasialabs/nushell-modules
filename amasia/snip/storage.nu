@@ -9,7 +9,7 @@ export const default_snip_file_name = "default.nuon"
 const default_snip_template = "[\n  {\n    name: hello-world\n    description: \"Quick greeting snippet\"\n    commands: [\n      \"print 'Hello, world!'\"\n    ]\n  }\n]\n"
 
 
-def ensure-snip-paths [] {
+export def ensure-snip-paths [] {
   let base = ($nu.home-path | path join $amasia_root_dirname $amasia_shell_dirname)
   if not ($base | path exists) { mkdir $base }
 

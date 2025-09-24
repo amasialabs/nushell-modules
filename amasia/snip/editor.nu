@@ -1,6 +1,7 @@
 # amasia/snip/editor.nu - snippet authoring commands
 
 use storage.nu [list-sources save-snip-sources snip-source-path]
+use history.nu [commit-changes make-commit-message]
 
 def nuon-string [s: string] {
   # Use to nuon for proper escaping, then strip list brackets
@@ -182,6 +183,10 @@ export def --env "new" [
   (format-snippets-nuon $entries)
   | save -f --raw $target_path
 
+  # Commit the change
+  let commit_msg = (make-commit-message "Add snippet" $trimmed_name $target.name)
+  commit-changes $commit_msg
+
   print $"Added snippet '($trimmed_name)' to source '($target.name)'"
 }
 
@@ -310,6 +315,10 @@ export def --env "update" [
   (format-snippets-nuon $updated_entries)
   | save -f --raw $source_path
 
+  # Commit the change
+  let commit_msg = (make-commit-message "Update snippet" $trimmed_name $target_snippet.source_name)
+  commit-changes $commit_msg
+
   print $"Updated snippet '($trimmed_name)' in source '($target_snippet.source_name)'"
 }
 
@@ -437,6 +446,16 @@ export def --env "rm" [
     (format-snippets-nuon $remaining)
     | save -f --raw $src_path
 
-    print $"Removed snippet '($match.name)' from source '($match.source_name)"
+    print $"Removed snippet '($match.name)' from source '($match.source_name)'"
+  }
+
+  # Commit all removals at once if there were any
+  if ($targets | length) > 0 {
+    let commit_msg = if ($targets | length) == 1 {
+      make-commit-message "Remove snippet" ($targets | first | str trim) ""
+    } else {
+      $"Remove ($targets | length) snippets"
+    }
+    commit-changes $commit_msg
   }
 }
