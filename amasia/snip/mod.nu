@@ -164,7 +164,6 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
       # Parse flags but expect target from stdin
       mut source = ""
       mut clipboard = false
-      mut both = false
       mut idx = 0
 
       loop {
@@ -189,33 +188,19 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
           continue
         }
 
-        if (["--both", "-b"] | any {|flag| $flag == $token }) {
-          $both = true
-          $idx = $idx + 1
-          continue
-        }
-
         # If we hit a non-flag, this isn't flags-only
         break
       }
 
-      if ($clipboard and $both) {
-        error make { msg: "Use either --clipboard/-c or --both/-b, not both." }
-      }
-
       # Dispatch with stdin as target
       if ($source | is-empty) {
-        if $both {
-          $stdin_input | paste --both
-        } else if $clipboard {
+        if $clipboard {
           $stdin_input | paste --clipboard
         } else {
           $stdin_input | paste
         }
       } else {
-        if $both {
-          $stdin_input | paste --source $source --both
-        } else if $clipboard {
+        if $clipboard {
           $stdin_input | paste --source $source --clipboard
         } else {
           $stdin_input | paste --source $source
