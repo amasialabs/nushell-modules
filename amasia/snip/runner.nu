@@ -76,6 +76,69 @@ def copy-to-clipboard [text: string] {
 
 
 
+# Parse a snippet record and validate its structure
+def parse-snippet [
+  snip: record
+  source_name: string
+  location: string  # for error messages (e.g., "at commit abc123" or "in file path")
+  idx: int
+] {
+  let snip_type = ($snip | describe)
+  if ($snip_type | str starts-with "record<") == false {
+    error make { msg: $"Entry ($idx) in ($source_name) ($location) must be a record." }
+  }
+
+  let has_name = ($snip | columns | any {|c| $c == "name" })
+  if $has_name == false {
+    error make { msg: $"Entry ($idx) in ($source_name) ($location) is missing the 'name' field." }
+  }
+
+  let has_commands = ($snip | columns | any {|c| $c == "commands" })
+  if $has_commands == false {
+    error make { msg: $"Entry ($idx) in ($source_name) ($location) is missing the 'commands' field." }
+  }
+
+  let name = ($snip.name | into string | str trim)
+  if ($name | str length) == 0 {
+    error make { msg: $"Entry ($idx) in ($source_name) ($location) has an empty 'name' field." }
+  }
+
+  let raw_commands = $snip.commands
+  let commands_desc = ($raw_commands | describe)
+
+  let commands_list = if ($commands_desc | str starts-with "list<string") {
+    $raw_commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 }
+  } else {
+    error make { msg: $"Entry '($name)' in ($source_name) ($location) must use 'commands' as list<string>." }
+  }
+
+  if ($commands_list | is-empty) {
+    error make { msg: $"Entry '($name)' in ($source_name) ($location) has empty 'commands'." }
+  }
+
+  let description = if ($snip | columns | any {|c| $c == "description" }) {
+    let desc_val = $snip.description
+    let desc_desc = ($desc_val | describe)
+
+    if $desc_desc == "string" {
+      $desc_val
+    } else if ($desc_desc | str starts-with "list<string") {
+      $desc_val | str join " "
+    } else {
+      error make { msg: $"Entry '($name)' in ($source_name) ($location) must use 'description' as string or list<string>." }
+    }
+  } else {
+    ""
+  }
+
+  {
+    name: $name,
+    commands: $commands_list,
+    description: $description,
+    source: $source_name
+  }
+}
+
 # Load all snippets from a specific commit
 def load-all-snip-at-commit [hash: string] {
   let sources = (get-sources-at-commit $hash)
@@ -95,66 +158,7 @@ def load-all-snip-at-commit [hash: string] {
       $parsed
       | enumerate
       | each {|entry|
-        let snip = $entry.item
-        let idx = $entry.index
-
-        let snip_type = ($snip | describe)
-        if ($snip_type | str starts-with "record<") == false {
-          error make { msg: $"Entry ($idx) in ($source.name) at commit ($hash) must be a record." }
-        }
-
-        let has_name = ($snip | columns | any {|c| $c == "name" })
-        if $has_name == false {
-          error make { msg: $"Entry ($idx) in ($source.name) at commit ($hash) is missing the 'name' field." }
-        }
-
-        let has_commands = ($snip | columns | any {|c| $c == "commands" })
-        if $has_commands == false {
-          error make { msg: $"Entry ($idx) in ($source.name) at commit ($hash) is missing the 'commands' field." }
-        }
-
-        let name = ($snip.name | into string | str trim)
-        if ($name | str length) == 0 {
-          error make { msg: $"Entry ($idx) in ($source.name) at commit ($hash) has an empty 'name' field." }
-        }
-
-        let raw_commands = $snip.commands
-        let commands_desc = ($raw_commands | describe)
-
-        let commands_list = if ($commands_desc | str starts-with "list<string") {
-          $raw_commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 }
-        } else {
-          error make { msg: $"Entry '($name)' in ($source.name) at commit ($hash) must use 'commands' as list<string>." }
-        }
-
-        let command_text = ($commands_list | str join "\n")
-
-        if ($command_text | str length) == 0 {
-          error make { msg: $"Entry '($name)' in ($source.name) at commit ($hash) has empty 'commands'." }
-        }
-
-        let description = if ($snip | columns | any {|c| $c == "description" }) {
-          let desc_val = $snip.description
-          let desc_desc = ($desc_val | describe)
-
-          if $desc_desc == "string" {
-            $desc_val
-          } else if ($desc_desc | str starts-with "list<string") {
-            $desc_val | str join " "
-          } else {
-            error make { msg: $"Entry '($name)' in ($source.name) at commit ($hash) must use 'description' as string or list<string>." }
-          }
-        } else {
-          ""
-        }
-
-        {
-          name: $name,
-          command: $command_text,
-          commands: $commands_list,
-          description: $description,
-          source_name: $source.name
-        }
+        parse-snippet $entry.item $source.name $"at commit ($hash)" $entry.index
       }
     }
   }
@@ -202,66 +206,7 @@ def load-all-snip [] {
         $parsed
         | enumerate
         | each {|entry|
-          let snip = $entry.item
-          let idx = $entry.index
-
-          let snip_type = ($snip | describe)
-          if ($snip_type | str starts-with "record<") == false {
-            error make { msg: $"Entry ($idx) in ($source_path) must be a record." }
-          }
-
-          let has_name = ($snip | columns | any {|c| $c == "name" })
-          if $has_name == false {
-            error make { msg: $"Entry ($idx) in ($source_path) is missing the 'name' field." }
-          }
-
-          let has_commands = ($snip | columns | any {|c| $c == "commands" })
-          if $has_commands == false {
-            error make { msg: $"Entry ($idx) in ($source_path) is missing the 'commands' field." }
-          }
-
-          let name = ($snip.name | into string | str trim)
-          if ($name | str length) == 0 {
-            error make { msg: $"Entry ($idx) in ($source_path) has an empty 'name' field." }
-          }
-
-          let raw_commands = $snip.commands
-          let commands_desc = ($raw_commands | describe)
-
-          let commands_list = if ($commands_desc | str starts-with "list<string") {
-            $raw_commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 }
-          } else {
-            error make { msg: $"Entry '($name)' in ($source_path) must use 'commands' as list<string>." }
-          }
-
-          let command_text = ($commands_list | str join "\n")
-
-          if ($command_text | str length) == 0 {
-            error make { msg: $"Entry '($name)' in ($source_path) has empty 'commands'." }
-          }
-
-          let description = if ($snip | columns | any {|c| $c == "description" }) {
-            let desc_val = $snip.description
-            let desc_desc = ($desc_val | describe)
-
-            if $desc_desc == "string" {
-              $desc_val
-            } else if ($desc_desc | str starts-with "list<string") {
-              $desc_val | str join " "
-            } else {
-              error make { msg: $"Entry '($name)' in ($source_path) must use 'description' as string or list<string>." }
-            }
-          } else {
-            ""
-          }
-
-          {
-            name: $name,
-            command: $command_text,
-            commands: $commands_list,
-            description: $description,
-            source_name: $source.name
-          }
+          parse-snippet $entry.item $source.name $"in ($source_path)" $entry.index
         }
       }
     } else {
@@ -281,7 +226,7 @@ export def --env "ls" [
     load-all-snip-at-commit $from_hash
   }
 
-  $snippets | select name commands source_name | rename name commands source
+  $snippets | reject description
 }
 
 
@@ -321,7 +266,7 @@ def get [
     error make { msg: $"Snippet '($name)' not found" }
   } else if ($matches | length) > 1 {
     if ($source != "") {
-      let filtered = ($matches | where source_name == $source)
+      let filtered = ($matches | where source == $source)
       if (($filtered | length) == 1) {
         $filtered | first
       } else {
@@ -361,7 +306,7 @@ export def --env "paste" [
   }
 
   let snip = (get $actual_target --source $source --from-hash $from_hash)
-  let text = $snip.command
+  let text = ($snip.commands | str join "\n")
 
   let do_clipboard = ($clipboard or $both)
   let do_buffer = (if $both { true } else { not $clipboard })
@@ -419,13 +364,8 @@ export def "run" [
   }
 
   let snip = (get $actual_target --source $source --from-hash $from_hash)
-  if (not ($snip | columns | any {|c| $c == "commands" })) {
-    # Fallback: execute joined text
-    nu -c $snip.command
-  } else {
-    for $cmd in $snip.commands {
-      nu -c $cmd
-    }
+  for $cmd in $snip.commands {
+    nu -c $cmd
   }
 }
 
@@ -448,18 +388,5 @@ export def "show" [
     $target
   }
 
-  let snip = (get $actual_target --source $source --from-hash $from_hash)
-  let desc = ($snip.description? | default "")
-
-  mut rows = []
-  $rows = ($rows | append { field: "Name", value: $snip.name })
-
-  if (($desc | str length) > 0) {
-    $rows = ($rows | append { field: "Description", value: $desc })
-  }
-
-  $rows = ($rows | append { field: "Command", value: $snip.command })
-  $rows = ($rows | append { field: "Source", value: $snip.source_name })
-
-  $rows
+  get $actual_target --source $source --from-hash $from_hash
 }
