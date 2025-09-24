@@ -285,15 +285,10 @@ export def --env "paste" [
   target?: string,           # snippet name or row index (optional, can be piped)
   --source: string = "",  # disambiguate when names collide
   --clipboard(-c),           # copy only to clipboard
-  --both(-b),                 # send to command line and clipboard
   --from-hash: string = ""  # load snippets from a specific commit hash
 ] {
   # Capture stdin immediately before optional parameters consume it
   let stdin_input = $in
-
-  if ($clipboard and $both) {
-    error make { msg: "Use either --clipboard (-c) or --both (-b), not both." }
-  }
 
   # Get target from argument or stdin
   let actual_target = if ($target | is-empty) {
@@ -308,8 +303,8 @@ export def --env "paste" [
   let snip = (get $actual_target --source $source --from-hash $from_hash)
   let text = ($snip.commands | str join "\n")
 
-  let do_clipboard = ($clipboard or $both)
-  let do_buffer = (if $both { true } else { not $clipboard })
+  let do_clipboard = $clipboard
+  let do_buffer = (not $clipboard)
 
   mut actions = []
 
@@ -366,6 +361,42 @@ export def "run" [
   let snip = (get $actual_target --source $source --from-hash $from_hash)
   for $cmd in $snip.commands {
     nu -c $cmd
+  }
+}
+
+# Select snippet interactively with fzf
+export def "pick" [
+  --clipboard(-c)  # copy selected snippet to clipboard
+  --run(-r)         # run selected snippet
+] {
+  let input = $in
+
+  let snippets = if ($input | is-empty) {
+    load-all-snip | reject description
+  } else {
+    $input
+  }
+
+  let selected = (
+    $snippets
+    | flatten
+    | to csv --separator "\t"
+    | fzf --header-lines 1
+    | str trim
+    | split row "\t"
+    | first
+  )
+
+  if ($selected | is-empty) {
+    return
+  }
+
+  if $run {
+    snip run $selected
+  } else if $clipboard {
+    snip paste $selected --clipboard
+  } else {
+    $selected
   }
 }
 

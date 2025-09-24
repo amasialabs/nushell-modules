@@ -11,6 +11,7 @@ A simple snippet manager for [Nushell](https://www.nushell.sh/) that helps you o
 - **Git history** tracking with time-travel support
 - **Pipe-friendly** — works with stdin/stdout
 - **Multiple sources** for different contexts
+- **Interactive selection** with fzf support
 
 ## Quick Start
 
@@ -99,7 +100,13 @@ snip show deploy
 # Paste to command line
 snip paste deploy         # → command line buffer
 snip paste deploy -c       # → clipboard only
-snip paste deploy -b       # → both buffer and clipboard
+
+# Interactive selection with fzf (requires fzf installed)
+snip pick                              # select from all snippets, return name
+snip pick -c                           # select and copy to clipboard
+snip pick -r                           # select and run immediately
+snip ls | where source == "work" | snip pick  # filter then select
+snip pick | snip paste                 # select and paste to command line
 ```
 
 ## Advanced Usage
@@ -226,8 +233,8 @@ snip history revert a3c4d5f --message "Restore working deployment scripts"
 
 - `--source <name>` - Specify a source file (for new, update, run, show, paste)
 - `--description <text>` - Add description (for new, update)
-- `--clipboard / -c` - Copy to clipboard (for paste)
-- `--both / -b` - Copy to both buffer and clipboard (for paste)
+- `--clipboard / -c` - Copy to clipboard (for paste, pick)
+- `--run / -r` - Run snippet immediately (for pick)
 - `--limit <n>` - Limit output rows (for history)
 - `--from-hash <hash>` - Load snippets from a specific commit (for ls, show, run, paste, source ls)
 
