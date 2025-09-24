@@ -57,17 +57,39 @@ def format-snippets-nuon [entries: list<record>] {
 
 export def --env "new" [
   --name: string,
-  --commands: list<string>,
+  --commands: list<string> = [],  # empty list means use stdin
   --source: string = "",
   --description: string = ""
 ] {
+  # Capture stdin immediately
+  let stdin_input = $in
+
   let trimmed_name = ($name | into string | str trim)
   if ($trimmed_name | str length) == 0 {
     error make { msg: "--name must not be empty" }
   }
 
+  # Get commands from argument or stdin
+  let raw_commands = if ($commands | is-empty) {
+    if ($stdin_input | is-empty) {
+      error make { msg: "--commands is required (either as argument or piped input)" }
+    }
+    # If stdin is a string, treat it as a single command
+    # If stdin is a list, use it as commands
+    let stdin_type = ($stdin_input | describe)
+    if ($stdin_type == "string") {
+      [$stdin_input]
+    } else if ($stdin_type | str starts-with "list") {
+      $stdin_input
+    } else {
+      error make { msg: "Piped input must be a string or list of strings" }
+    }
+  } else {
+    $commands
+  }
+
   # Normalize commands: trim each item and drop empties
-  let normalized_commands = ($commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 })
+  let normalized_commands = ($raw_commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 })
   if (($normalized_commands | length) == 0) {
     error make { msg: "--commands requires at least one non-empty command" }
   }
