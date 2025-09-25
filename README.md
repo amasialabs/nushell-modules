@@ -109,7 +109,6 @@ snip pick -c                           # select and copy to clipboard
 snip pick -r                           # select and run immediately
 snip pick --source work                # select only from a specific source
 snip | where source == "work" | snip pick  # filter then select
-snip pick | snip paste                 # select and paste to command line
 ```
 
 ## Advanced Usage
@@ -154,8 +153,8 @@ history | last 5 | get command | snip new recent-commands
 # Run snippet from selection
 snip | where source == "work" | get name | first | snip run
 
-# Update from pipe
-echo "pwd" | snip update show-dir
+# Update snippet from command output
+history | last 10 | get command | str join "\n" | snip update daily-workflow
 
 # Interactive selection (with fzf)
 snip ls | get name | str join (char nl) | fzf | snip run
