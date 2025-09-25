@@ -422,10 +422,11 @@ export def "pick" [
       --delimiter "\t"
       --with-nth 1,2,3
       --nth 1,2,3
-      --layout=reverse-list
+      --layout=reverse
       --header-lines 1
       --prompt "snip> "
       --bind "alt-s:toggle-sort"
+      --ansi
     | str trim
   )
 
