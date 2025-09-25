@@ -7,7 +7,7 @@ https://github.com/user-attachments/assets/be3860d3-949f-4b6c-a778-de2ff3453497
 ## Features
 
 - **Organize snippets** in multiple source files
-- **Run instantly** — execute snippets immediately, no file editing needed
+- **Run instantly** — execute snippets immediately
 - **Quick access** by name or index
 - **Smart clipboard** integration
 - **Git history** tracking with time-travel support
