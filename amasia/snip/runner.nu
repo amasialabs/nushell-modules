@@ -382,14 +382,37 @@ export def "pick" [
     $input
   }
 
-  let selected = (
+  # Format rows and provide a non-selectable header via fzf options
+  let formatted = (
     $snippets
     | each {|snip|
-      # Join commands into single string for display
-      $snip | update commands {|row| $row.commands | str join "; "}
+      $snip
+      | update commands {|row|
+        $row.commands
+        | str join "; "
+        | str replace -a "\r\n" " ⏎ "
+        | str replace -a "\n" " ⏎ "
+        | str replace -a "\r" " ⏎ "
+        | str replace -a "\t" " "
+      }
     }
+    | select name source commands
+    | sort-by name source
     | to csv --separator "\t"
-    | fzf --header-lines 1
+  )
+
+  let selected = (
+    $formatted
+    | fzf
+      --delimiter "\t"
+      --with-nth 1,2,3
+      --nth 1,2
+      --layout=reverse-list
+      --header-first
+      --header-lines 1
+      --header "Name\tSource\tCommands"
+      --prompt "snip> "
+      --bind "alt-s:toggle-sort"
     | str trim
     | split row "\t"
     | first
