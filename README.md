@@ -303,7 +303,7 @@ snip ls | where name =~ "test" | each { |it| snip run $it.name }
 snip ls | where source == "work" | each { |it| snip paste $it.name -c }
 ```
 
-## 📁 Data Storage
+## Data Storage
 
 All snippet data is stored in:
 ```
