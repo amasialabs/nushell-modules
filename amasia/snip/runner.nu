@@ -408,7 +408,7 @@ export def "pick" [
     | to csv --separator "\t"
   )
 
-  let selected = (
+  let selected_line = (
     $formatted
     | fzf
       --delimiter "\t"
@@ -421,20 +421,22 @@ export def "pick" [
       --prompt "snip> "
       --bind "alt-s:toggle-sort"
     | str trim
-    | split row "\t"
-    | first
   )
 
-  if ($selected | is-empty) {
+  if ($selected_line | is-empty) {
     return
   }
 
+  let selected_parts = ($selected_line | split row "\t")
+  let selected_name = ($selected_parts | first)
+  let selected_source = ($selected_parts | skip 1 | first)
+
   if $run {
-    if ($source | is-empty) { run $selected } else { run $selected --source $source }
+    run $selected_name --source $selected_source
   } else if $clipboard {
-    if ($source | is-empty) { paste $selected --clipboard } else { paste $selected --source $source --clipboard }
+    paste $selected_name --clipboard --source $selected_source
   } else {
-    if ($source | is-empty) { paste $selected } else { paste $selected --source $source }
+    paste $selected_name --source $selected_source
   }
 }
 
