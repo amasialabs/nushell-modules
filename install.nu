@@ -9,17 +9,18 @@ if not ($mods | path exists) { mkdir $mods }
 mut updated = true
 
 if ([$mods ".git"] | path join | path exists) {
-    let before = (^git -C $mods rev-parse HEAD | str trim)
-    ^git -C $mods pull --ff-only --quiet
+    let beforну e = (^git -C $mods rev-parse HEAD | str trim)
+    ^git -C $mods fetch --quiet --depth 1
+    ^git -C $mods reset --quiet --hard origin/main
     let after = (^git -C $mods rev-parse HEAD | str trim)
-    
+
      if $before == $after {
         $updated = false
         print "✔ Already up to date"
-     }     
-     
+     }
+
 } else {
-    ^git clone --quiet --depth 1 $repo $mods
+    ^git clone --quiet --depth 1 --single-branch --branch main $repo $mods
 }
 
 const cfg_file      = ($cfg_dir | path join "config.nu")

@@ -2,6 +2,8 @@
 
 A simple snippet manager for [Nushell](https://www.nushell.sh/) that helps you organize, run, and share reusable commands with Git-based version control.
 
+![Demo](https://github.com/user-attachments/assets/be3860d3-949f-4b6c-a778-de2ff3453497)
+
 ## Features
 
 - **Organize snippets** in multiple source files
