@@ -366,8 +366,9 @@ export def "run" [
 
 # Select snippet interactively with fzf
 export def "pick" [
-  --clipboard(-c)  # copy selected snippet to clipboard
-  --run(-r)         # run selected snippet
+  --clipboard(-c),  # copy selected snippet to clipboard
+  --run(-r),        # run selected snippet
+  --source: string = ""  # filter by source id
 ] {
   let input = $in
 
@@ -382,9 +383,15 @@ export def "pick" [
     $input
   }
 
+  let filtered = if ($source | is-empty) {
+    $snippets
+  } else {
+    $snippets | where source == $source
+  }
+
   # Format rows and provide a non-selectable header via fzf options
   let formatted = (
-    $snippets
+    $filtered
     | each {|snip|
       $snip
       | update commands {|row|
@@ -423,11 +430,11 @@ export def "pick" [
   }
 
   if $run {
-    run $selected
+    if ($source | is-empty) { run $selected } else { run $selected --source $source }
   } else if $clipboard {
-    paste $selected --clipboard
+    if ($source | is-empty) { paste $selected --clipboard } else { paste $selected --source $source --clipboard }
   } else {
-    paste $selected
+    if ($source | is-empty) { paste $selected } else { paste $selected --source $source }
   }
 }
 

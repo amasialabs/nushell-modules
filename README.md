@@ -105,7 +105,8 @@ snip paste deploy -c       # → clipboard only
 snip pick                              # select from all snippets, return name
 snip pick -c                           # select and copy to clipboard
 snip pick -r                           # select and run immediately
-snip ls | where source == "work" | snip pick  # filter then select
+snip pick --source work                # select only from a specific source
+snip | where source == "work" | snip pick  # filter then select
 snip pick | snip paste                 # select and paste to command line
 ```
 
@@ -149,7 +150,7 @@ All commands work with pipes for powerful workflows:
 history | last 5 | get command | snip new recent-commands
 
 # Run snippet from selection
-snip ls | where source == "work" | get name | first | snip run
+snip | where source == "work" | get name | first | snip run
 
 # Update from pipe
 echo "pwd" | snip update show-dir
