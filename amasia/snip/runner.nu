@@ -421,7 +421,7 @@ export def "pick" [
     | fzf
       --delimiter "\t"
       --with-nth 1,2,3
-      --nth 1,2
+      --nth 1,2,3
       --layout=reverse-list
       --header-lines 1
       --prompt "snip> "
