@@ -8,7 +8,7 @@ Run everything inside Nushell >=0.85. Helpful commands while iterating:
 ```
 nu -c 'use ./amasia/snip/mod.nu; snip source new mypack'                # create a new source file
 nu -c 'use ./amasia/snip/mod.nu; snip source ls'                        # list all source files
-nu -c 'use ./amasia/snip/mod.nu; snip new --name greet --commands ["echo hi"]'  # add a snippet to default source
+nu -c 'use ./amasia/snip/mod.nu; snip new greet "echo hi"'             # add a snippet to default source
 nu -c 'use ./amasia/snip/mod.nu; snip ls'                               # list merged snippets
 nu -c 'use ./amasia/snip/mod.nu; snip run demo --source mypack'         # execute a snippet from specific source
 nu -c 'use ./amasia/snip/mod.nu; snip rm demo'                          # remove a snippet

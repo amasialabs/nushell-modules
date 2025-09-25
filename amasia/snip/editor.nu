@@ -59,9 +59,9 @@ def format-snippets-nuon [entries: list<record>] {
 # Create a new snippet
 export def --env "new" [
   name?: string,                   # snippet name (positional argument)
-  --commands: list<string> = [],  # empty list means use stdin
   --source: string = "",
-  --description: string = ""
+  --description: string = "",
+  ...positional_commands: any      # optional commands provided positionally; can be list or strings
 ] {
   # Capture stdin immediately
   let stdin_input = $in
@@ -76,10 +76,23 @@ export def --env "new" [
     error make { msg: "Snippet name must not be empty" }
   }
 
-  # Get commands from argument or stdin
-  let raw_commands = if ($commands | is-empty) {
+  # Get commands from positional args after name (string(s) or a single list), or stdin
+  let raw_commands = if (not ($positional_commands | is-empty)) {
+    let pc = $positional_commands
+    if (($pc | length) == 1) {
+      let first_arg = ($pc | first)
+      let desc = ($first_arg | describe)
+      if ($desc | str starts-with "list<") {
+        $first_arg
+      } else {
+        $pc
+      }
+    } else {
+      $pc
+    }
+  } else {
     if ($stdin_input | is-empty) {
-      error make { msg: "--commands is required (either as argument or piped input)" }
+      error make { msg: "Commands are required (provide via positional args or piped input)" }
     }
     # If stdin is a string, treat it as a single command
     # If stdin is a list, use it as commands
@@ -91,14 +104,12 @@ export def --env "new" [
     } else {
       error make { msg: "Piped input must be a string or list of strings" }
     }
-  } else {
-    $commands
   }
 
   # Normalize commands: trim each item and drop empties
   let normalized_commands = ($raw_commands | each {|c| ($c | into string | str trim) } | where {|c| ($c | str length) > 0 })
   if (($normalized_commands | length) == 0) {
-    error make { msg: "--commands requires at least one non-empty command" }
+    error make { msg: "Commands require at least one non-empty item" }
   }
 
   let trimmed_description = ($description | into string | str trim)
@@ -199,9 +210,9 @@ export def --env "new" [
 # Update an existing snippet
 export def --env "update" [
   name?: string,                   # snippet name (positional argument)
-  --commands: list<string> = [],  # new commands (empty list means use stdin)
   --source: string = "",         # source file to update in
-  --description: string = ""     # optional new description
+  --description: string = "",    # optional new description
+  ...positional_commands: any     # optional commands provided positionally; can be list or strings
 ] {
   # Capture stdin immediately for commands
   let stdin_input = $in
@@ -215,10 +226,23 @@ export def --env "update" [
     error make { msg: "Snippet name must not be empty" }
   }
 
-  # Get commands from argument or stdin
-  let raw_commands = if ($commands | is-empty) {
+  # Get commands from positional args after name (string(s) or a single list), or stdin
+  let raw_commands = if (not ($positional_commands | is-empty)) {
+    let pc = $positional_commands
+    if (($pc | length) == 1) {
+      let first_arg = ($pc | first)
+      let desc = ($first_arg | describe)
+      if ($desc | str starts-with "list<") {
+        $first_arg
+      } else {
+        $pc
+      }
+    } else {
+      $pc
+    }
+  } else {
     if ($stdin_input | is-empty) {
-      error make { msg: "--commands is required (either as argument or piped input)" }
+      error make { msg: "Commands are required (provide via positional args or piped input)" }
     }
     # If stdin is a string, treat it as a single command
     # If stdin is a list, use it as commands
@@ -230,8 +254,6 @@ export def --env "update" [
     } else {
       error make { msg: "Piped input must be a string or list of strings" }
     }
-  } else {
-    $commands
   }
 
   # Normalize commands: trim each item and drop empties
@@ -332,16 +354,17 @@ export def --env "update" [
   print $"Updated snippet '($trimmed_name)' in source '($target_snippet.source_name)'"
 }
 
-# Remove a snippet by name or index; optional --source when names collide
+# Remove one or more snippets by name or index; optional --source when names collide
 export def --env "rm" [
-  target?: string,           # snippet name or index (optional, can be piped)
-  --source: string = ""
+  --source: string = "",
+  ...targets: string          # one or more names/indices; if empty, can be piped
 ] {
   # Capture stdin immediately
   let stdin_input = $in
 
-  # Get target(s) from argument or stdin
-  let targets = if ($target | is-empty) {
+  # Get target(s) from args or stdin
+  let arg_targets = $targets
+  let targets = if (($arg_targets | is-empty) or (($arg_targets | length) == 0)) {
     if ($stdin_input | is-empty) {
       error make { msg: "Target argument is required (either as argument or piped input)." }
     }
@@ -353,7 +376,7 @@ export def --env "rm" [
       [$stdin_input]
     }
   } else {
-    [$target]
+    $arg_targets
   }
 
   # Process each target

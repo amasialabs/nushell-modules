@@ -1,6 +1,6 @@
 # Amasia Snip
 
-A simple snippet manager for [Nushell](https://www.nushell.sh/) that helps you organize, run, and share reusable commands with Git-based version control.
+A simple snippet manager for [Nushell](https://www.nushell.sh/) that helps you organize and run reusable commands with Git-based version control.
 
 https://github.com/user-attachments/assets/be3860d3-949f-4b6c-a778-de2ff3453497
 
@@ -40,8 +40,8 @@ snip ls
 ### Your First Snippet
 
 ```nu
-# Create a snippet (both forms work)
-snip new hello --commands ["echo 'Hello, Nushell!'"]
+# Create a snippet
+snip new hello "echo 'Hello, Nushell!'"
 # Output: Added snippet 'hello' to source 'default'
 
 # Run it
@@ -63,20 +63,36 @@ snip ls
 
 ```nu
 # Create snippets with multiple commands
-snip new deploy --commands [
+snip new deploy --description "Deploy the application" [
   "git pull"
   "npm install"
   "npm run build"
-] --description "Deploy the application"
+]
 
 # Update existing snippet
-snip update deploy --commands ["git pull" "npm run deploy"]
+snip update deploy ["git pull" "npm run deploy"]
 
-# Remove snippet
+# Also supports positional commands (single or multiple)
+snip new quick-one "echo test"
+snip update quick-one "echo updated"
+snip new chain "echo a" "echo b"
+snip new deploy2 ["git pull" "npm install" "npm run build"]
+
+# Remove snippet(s)
 snip rm deploy
+snip rm hello docker-active
 
 # Batch remove with pipe
 ["old-snippet1" "old-snippet2"] | snip rm
+```
+
+Note: flags (e.g., `--source`, `--description`) can be placed before or after positional commands; both forms work:
+
+```nu
+snip new demo --source work "echo hi"
+snip new demo "echo hi" --source work
+snip update demo --source work "echo hi"
+snip update demo "echo hi" --source work
 ```
 
 ### Running & Using Snippets
@@ -122,7 +138,7 @@ Sources let you organize snippets by context (work, personal, project-specific):
 snip source new work
 
 # Add snippet to specific source
-snip new ssh-prod --commands ["ssh user@prod.example.com"] --source work
+snip new ssh-prod --source work "ssh user@prod.example.com"
 
 # List sources
 snip source ls
@@ -160,6 +176,7 @@ history | last 10 | get command | str join "\n" | snip update daily-workflow
 snip ls | get name | str join (char nl) | fzf | snip run
 
 # Batch operations
+snip rm old-snippet1 old-snippet2 old-snippet3
 ["old-snippet1" "old-snippet2" "old-snippet3"] | snip rm
 
 # Filter and process
@@ -227,9 +244,9 @@ snip ls
 | Command               | Description               | Example                                        |
 |-----------------------|---------------------------|------------------------------------------------|
 | `snip ls`             | List all snippets         | `snip ls`                                      |
-| `snip new`            | Create new snippet        | `snip new test --commands ["echo test"]`       |
-| `snip update`         | Update snippet            | `snip update test --commands ["echo updated"]` |
-| `snip rm`             | Remove snippet(s)         | `snip rm test` or `["a", "b"] \| snip rm`      |
+| `snip new`            | Create new snippet        | `snip new test "echo test"`                    |
+| `snip update`         | Update snippet            | `snip update test "echo updated"`              |
+| `snip rm`             | Remove snippet(s)         | `snip rm a b` or `["a", "b"] \| snip rm`       |
 | `snip run`            | Execute snippet           | `snip run test` or `echo "test" \| snip run`   |
 | `snip show`           | Show snippet details      | `snip show test`                               |
 | `snip paste`          | Paste to buffer/clipboard | `snip paste test -c`                           |
@@ -248,6 +265,7 @@ snip ls
 ### Command Flags
 
 - `--source <name>` - Specify a source file (for new, update, run, show, paste)
+- Flags may appear before or after positional commands (Nushell parses flags anywhere), e.g., `snip new demo --source work "echo hi"` or `snip new demo "echo hi" --source work`.
 - `--description <text>` - Add description (for new, update)
 - `--clipboard / -c` - Copy to clipboard (for paste, pick)
 - `--run / -r` - Run snippet immediately (for pick)
@@ -268,14 +286,14 @@ history | last 1 | get command | snip new last-cmd
 snip source new myproject
 
 # Add project commands
-snip new test --commands ["cargo test"] --source myproject
-snip new build --commands ["cargo build --release"] --source myproject
+snip new test --source myproject "cargo test"
+snip new build --source myproject "cargo build --release"
 ```
 
 ### 3. Multi-Command Workflows
 ```nu
 # Complex deployment
-snip new deploy-full --commands [
+snip new deploy-full [
   "git stash"
   "git pull origin main"
   "git stash pop"
@@ -286,7 +304,7 @@ snip new deploy-full --commands [
 ]
 
 # Secure SSH with password manager
-snip new ssh-secure --commands [
+snip new ssh-secure [
   "pass -c 'servers/production/admin'"  # Copy password to clipboard
   "env LANG=en_US.UTF-8 ssh -o PreferredAuthentications=password admin@server.example.com"
   "'' | pbcopy"  # Clear clipboard after login
@@ -344,7 +362,7 @@ All snippet data is stored in:
 4. **Snippet with spaces in commands**
    ```nu
    # Use list syntax for complex commands
-   snip new backup --commands [
+   snip new backup [
      "tar -czf backup.tar.gz ."
      "mv backup.tar.gz ~/backups/"
    ]

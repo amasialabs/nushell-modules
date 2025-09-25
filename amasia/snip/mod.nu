@@ -280,9 +280,9 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #   ls                 List every snippet aggregated from all sources
 #   show <name>        Display snippet details, optionally filtered by --source
 #   run <name>         Execute the snippet in a fresh Nushell process
-#   new <name>         Create a snippet in the default or selected source file
-#   update <name>      Update an existing snippet's commands
-#   rm <name>          Remove a snippet by name or index
+#   new <name> [cmd…]  Create a snippet (positional commands or stdin)
+#   update <name> [cmd…] Update snippet (positional commands or stdin)
+#   rm <name> [more…]  Remove one or more snippets by name or index
 #   paste <name>       Stage the snippet in the REPL buffer and/or clipboard
 #   pick               Select snippet interactively with fzf
 #   config             Show effective configuration and environment
@@ -294,7 +294,7 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #
 # Examples:
 #   snip ls
-#   snip new hello --commands ["echo 'Hello!'"]
+#   snip new hello "echo 'Hello!'"
 #   snip run deploy --source work
 #   snip paste demo --clipboard
 #   snip history --limit 10
