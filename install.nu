@@ -9,7 +9,7 @@ if not ($mods | path exists) { mkdir $mods }
 mut updated = true
 
 if ([$mods ".git"] | path join | path exists) {
-    let beforну e = (^git -C $mods rev-parse HEAD | str trim)
+    let before e = (^git -C $mods rev-parse HEAD | str trim)
     ^git -C $mods fetch --quiet --depth 1
     ^git -C $mods reset --quiet --hard origin/main
     let after = (^git -C $mods rev-parse HEAD | str trim)
