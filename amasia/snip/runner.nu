@@ -405,7 +405,15 @@ export def "pick" [
     }
     | select name source commands
     | sort-by name source
-    | to csv --separator "\t"
+    | each {|row|
+      # Format with fixed column widths for better alignment
+      let name_col = ($row.name | fill --alignment left --width 30)
+      let source_col = ($row.source | fill --alignment left --width 15)
+      let commands_col = $row.commands
+      $"($name_col)\t($source_col)\t($commands_col)"
+    }
+    | prepend "Name                          \tSource         \tCommands"
+    | str join "\n"
   )
 
   let selected_line = (
@@ -415,9 +423,7 @@ export def "pick" [
       --with-nth 1,2,3
       --nth 1,2
       --layout=reverse-list
-      --header-first
       --header-lines 1
-      --header "Name\tSource\tCommands"
       --prompt "snip> "
       --bind "alt-s:toggle-sort"
     | str trim
@@ -428,8 +434,8 @@ export def "pick" [
   }
 
   let selected_parts = ($selected_line | split row "\t")
-  let selected_name = ($selected_parts | first)
-  let selected_source = ($selected_parts | skip 1 | first)
+  let selected_name = ($selected_parts | first | str trim)
+  let selected_source = ($selected_parts | skip 1 | first | str trim)
 
   if $run {
     run $selected_name --source $selected_source
