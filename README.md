@@ -144,8 +144,8 @@ snip source rm work
 All commands work with pipes for powerful workflows:
 
 ```nu
-# Create snippet from command output
-"ls -la" | snip new list-all
+# Create snippet from a docker command
+"docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -v Exited" | snip new docker-active
 
 # Create from history
 history | last 5 | get command | snip new recent-commands
