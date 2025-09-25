@@ -427,6 +427,8 @@ export def "pick" [
       --prompt "snip> "
       --bind "alt-s:toggle-sort"
       --ansi
+      --height=40%
+      --min-height=10
     | str trim
   )
 
