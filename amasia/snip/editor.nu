@@ -59,7 +59,7 @@ def format-snippets-nuon [entries: list<record>] {
 # Create a new snippet
 export def --env "new" [
   name?: string,                   # snippet name (positional argument)
-  --source: string = "",
+  --source: string@"nu-complete snip sources" = "",
   --description: string = "",
   ...positional_commands: any      # optional commands provided positionally; can be list or strings
 ] {
@@ -209,8 +209,8 @@ export def --env "new" [
 
 # Update an existing snippet
 export def --env "update" [
-  name?: string,                   # snippet name (positional argument)
-  --source: string = "",         # source file to update in
+  name?: string@"nu-complete snip names",                   # snippet name (positional argument)
+  --source: string@"nu-complete snip sources" = "",         # source file to update in
   --description: string = "",    # optional new description
   ...positional_commands: any     # optional commands provided positionally; can be list or strings
 ] {
@@ -356,8 +356,8 @@ export def --env "update" [
 
 # Remove one or more snippets by name or index; optional --source when names collide
 export def --env "rm" [
-  --source: string = "",
-  ...targets: string          # one or more names/indices; if empty, can be piped
+  --source: string@"nu-complete snip sources" = "",
+  ...targets: string@"nu-complete snip names"          # one or more names/indices; if empty, can be piped
 ] {
   # Capture stdin immediately
   let stdin_input = $in

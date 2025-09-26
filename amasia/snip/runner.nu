@@ -282,8 +282,8 @@ def get [
 
 # Paste snippet command into the REPL buffer and/or clipboard
 export def --env "paste" [
-  target?: string,           # snippet name or row index (optional, can be piped)
-  --source: string = "",  # disambiguate when names collide
+  target?: string@"nu-complete snip names",           # snippet name or row index (optional, can be piped)
+  --source: string@"nu-complete snip sources" = "",  # disambiguate when names collide
   --clipboard(-c),           # copy only to clipboard
   --from-hash: string = ""  # load snippets from a specific commit hash
 ] {
@@ -341,8 +341,8 @@ export def --env "paste" [
 
 # Execute a snippet by name
 export def "run" [
-  target?: string,           # snip name or row index (optional, can be piped)
-  --source: string = "",   # disambiguate when names collide
+  target?: string@"nu-complete snip names",           # snip name or row index (optional, can be piped)
+  --source: string@"nu-complete snip sources" = "",   # disambiguate when names collide
   --from-hash: string = ""  # load snippets from a specific commit hash
 ] {
   # Capture stdin immediately before optional parameters consume it
@@ -451,8 +451,8 @@ export def "pick" [
 
 # Show snippet details
 export def "show" [
-  target?: string,           # snip name or row index (optional, can be piped)
-  --source: string = "",   # disambiguate when names collide
+  target?: string@"nu-complete snip names",           # snip name or row index (optional, can be piped)
+  --source: string@"nu-complete snip sources" = "",   # disambiguate when names collide
   --from-hash: string = ""  # load snippets from a specific commit hash
 ] {
   # Capture stdin immediately before optional parameters consume it

@@ -5,7 +5,7 @@ use history.nu [commit-changes init-git-repo get-sources-at-commit]
 
 # Remove a source file by name
 export def --env "source rm" [
-  name: string         # source name to remove
+  name: string@"nu-complete snip sources"         # source name to remove
 ] {
   if ($name == "default") {
     error make { msg: "Cannot remove the default source" }

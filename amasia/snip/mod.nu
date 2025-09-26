@@ -35,6 +35,20 @@ export def "history revert" [
   history revert-to-commit $hash --message $message
 }
 
+# Completion: list snippet names (unique)
+def "nu-complete snip names" [] {
+  ls | get name | uniq | sort
+}
+
+# Completion: list source names
+def "nu-complete snip sources" [] {
+  list-sources | get name | sort
+}
+
+# Note: Avoid reading the current buffer for portability across Nu versions.
+# Main varargs complete to snippet names; subcommands handle their own flags.
+
+
 # Parse optional target and flags for run/show
 def parse-runshow-args [args: list<string>] {
   mut target = ""
