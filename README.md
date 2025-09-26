@@ -101,8 +101,12 @@ snip update demo "echo hi" --source work
 # Run by name
 snip run deploy
 
+# Run using shorthand -r flag
+snip -r deploy
+
 # Run by index (from snip ls output)
 snip run 0
+snip -r 0
 
 # Show snippet details
 snip show deploy
@@ -247,7 +251,7 @@ snip ls
 | `snip new`            | Create new snippet        | `snip new test "echo test"`                    |
 | `snip update`         | Update snippet            | `snip update test "echo updated"`              |
 | `snip rm`             | Remove snippet(s)         | `snip rm a b` or `["a", "b"] \| snip rm`       |
-| `snip run`            | Execute snippet           | `snip run test` or `echo "test" \| snip run`   |
+| `snip run`            | Execute snippet           | `snip run test` or `snip -r test`              |
 | `snip show`           | Show snippet details      | `snip show test`                               |
 | `snip paste`          | Paste to buffer/clipboard | `snip paste test -c`                           |
 | `snip config`         | Show configuration        | `snip config`                                  |
@@ -264,11 +268,12 @@ snip ls
 
 ### Command Flags
 
+- `--run / -r` - Shorthand for run subcommand (global flag, e.g., `snip -r deploy`)
 - `--source <name>` - Specify a source file (for new, update, run, show, paste)
 - Flags may appear before or after positional commands (Nushell parses flags anywhere), e.g., `snip new demo --source work "echo hi"` or `snip new demo "echo hi" --source work`.
 - `--description <text>` - Add description (for new, update)
 - `--clipboard / -c` - Copy to clipboard (for paste, pick)
-- `--run / -r` - Run snippet immediately (for pick)
+- `--run / -r` - Run snippet immediately (for pick subcommand)
 - `--limit <n>` - Limit output rows (for history)
 - `--from-hash <hash>` - Load snippets from a specific commit (for ls, show, run, paste, source ls)
 

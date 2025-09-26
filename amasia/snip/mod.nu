@@ -296,25 +296,45 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #   snip ls
 #   snip new hello "echo 'Hello!'"
 #   snip run deploy --source work
+#   snip -r deploy --source work  # shorthand for 'snip run deploy --source work'
 #   snip paste demo --clipboard
 #   snip history --limit 10
 #   snip history revert a3c4d5f
 export def --env main [
   subcommand: string = "ls",
   --from-hash: string = "",
+  --run(-r),        # shorthand for 'run' subcommand
   ...args: string
 ] {
   let stdin = $in
-  let forwarded_args = if ($from_hash | is-empty) {
-    $args
+  # If -r flag is used, treat it as 'run' subcommand
+  let actual_subcommand = if $run {
+    "run"
   } else {
-    [ "--from-hash" $from_hash ] | append $args
+    $subcommand
+  }
+
+  # When -r is used, the first positional becomes the target
+  let actual_args = if $run {
+    if ($subcommand != "ls") {
+      [$subcommand] | append $args
+    } else {
+      $args
+    }
+  } else {
+    $args
+  }
+
+  let forwarded_args = if ($from_hash | is-empty) {
+    $actual_args
+  } else {
+    [ "--from-hash" $from_hash ] | append $actual_args
   }
 
   if ($stdin | is-empty) {
-    snip-dispatch $subcommand $forwarded_args
+    snip-dispatch $actual_subcommand $forwarded_args
   } else {
-    $stdin | snip-dispatch $subcommand $forwarded_args
+    $stdin | snip-dispatch $actual_subcommand $forwarded_args
   }
 }
 
