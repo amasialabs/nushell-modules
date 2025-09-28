@@ -28,11 +28,16 @@ const source_line   = $'source "($cfg_file)"'
 
 if not ($cfg_dir | path exists) { mkdir $cfg_dir }
 
-const cfg_block = "
-# --- Amasia Nushell config ---
-const mods = ($nu.home-path | path join '.amasia' 'nushell' 'modules')
-$env.NU_LIB_DIRS = ($env.NU_LIB_DIRS | default [] | append $mods | uniq)
-"
+let snipx_taken = (try { (which snipx | length) > 0 } catch { false })
+let alias_line = (if $snipx_taken { "# alias snipx skipped: already exists" } else { "alias snipx = snip pick -r" })
+
+let cfg_block = ([
+  "# --- Amasia Nushell config ---",
+  "const mods = ($nu.home-path | path join '.amasia' 'nushell' 'modules')",
+  "$env.NU_LIB_DIRS = ($env.NU_LIB_DIRS | default [] | append $mods | uniq)",
+  "use amasia/snip",
+  $alias_line,
+] | str join "\n")
  
 $cfg_block | save -f $cfg_file
 
@@ -49,7 +54,7 @@ if not ($config_text | str contains $source_line) {
 }
 
 if $updated {
-    print $"  Modules deployed. Run the commands below or restart your shell to apply the changes:\n"
-    print $"   ($source_line)"
-    print $"   use amasia/snip"
+    print $"  Modules deployed. Run the command below or restart your shell to apply the changes:\n"
+    print $"   ($source_line)\n"    
+    print $"Then try:\n   snip ls\n   snipx"
 }
