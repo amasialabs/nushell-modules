@@ -34,9 +34,10 @@ let alias_line = (if $snipx_taken { "# alias snipx skipped: already exists" } el
 let cfg_block = ([
   "# --- Amasia Nushell config ---",
   "const mods = ($nu.home-path | path join '.amasia' 'nushell' 'modules')",
-  "$env.NU_LIB_DIRS = ($env.NU_LIB_DIRS | default [] | append $mods | uniq)",
-  "use amasia/snip",
+  "source $\"($mods)/amasia/mod.nu\"",
   $alias_line,
+  "",
+  "$env.NU_LIB_DIRS = ($env.NU_LIB_DIRS | default [] | append $mods | uniq)",
 ] | str join "\n")
  
 $cfg_block | save -f $cfg_file
