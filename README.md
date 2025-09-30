@@ -34,7 +34,6 @@ use amasia/snip; alias snipx = snip pick -r
 ```nu
 # Verify installation
 snip --version
-# Output: Shows the default hello-world snippet
 ```
 
 ### Your First Snippet
