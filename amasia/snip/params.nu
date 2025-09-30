@@ -210,6 +210,10 @@ export def update-snippet-params [
   # Commit the change
   let param_keys = ($params | columns | str join ", ")
   commit-changes $"Add parameters to '($name)' in ($resolved.source): ($param_keys)"
+
+  # Print success message
+  let added_values = ($params | transpose key values | each {|row| $"($row.key)=($row.values | str join ',')"} | str join " ")
+  print $"Added parameters to '($name)': ($added_values)"
 }
 
 # List parameters for a snippet

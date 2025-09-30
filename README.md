@@ -29,7 +29,7 @@ source "~/.amasia/nushell/config.nu"
 ```
 ```nu
 # Do not forget
-use amasia/snip
+use amasia/snip; alias snipx = snip pick -r
 ```
 ```nu
 # Verify installation
