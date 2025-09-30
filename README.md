@@ -28,8 +28,12 @@ http get https://raw.githubusercontent.com/amasialabs/nushell-modules/main/insta
 source "~/.amasia/nushell/config.nu"
 ```
 ```nu
+# Do not forget
+use amasia/snip
+```
+```nu
 # Verify installation
-snip ls
+snip --version
 # Output: Shows the default hello-world snippet
 ```
 
