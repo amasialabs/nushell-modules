@@ -1,4 +1,4 @@
-# Amasia Snip
+# amasia/snip
 
 A simple snippet manager for [Nushell](https://www.nushell.sh/) that helps you organize and run reusable commands with Git-based version control.
 
@@ -24,12 +24,8 @@ https://github.com/user-attachments/assets/be3860d3-949f-4b6c-a778-de2ff3453497
 http get https://raw.githubusercontent.com/amasialabs/nushell-modules/main/install.nu | nu -c $in
 ```
 ```nu
-# For first-time installation, source the config
+# Source the config
 source "~/.amasia/nushell/config.nu"
-```
-```nu
-# Do not forget
-use amasia/snip
 ```
 ```nu
 # Verify installation
@@ -129,9 +125,10 @@ snip pick -c                           # select and copy to clipboard
 snip pick -r                           # select and run immediately
 snip pick --source work                # select only from a specific source
 snip | where source == "work" | snip pick  # filter then select
-```
 
-## Advanced Usage
+# Quick interactive run (alias installed automatically)
+snipx                                  # alias for snip pick -r
+```
 
 ### Working with Sources
 
@@ -158,6 +155,80 @@ snip source --from-hash <h> # sugar for `source ls --from-hash <h>`
 # Remove source (cannot remove default)
 snip source rm work
 ```
+
+## Advanced Usage
+
+### Parameterized Snippets
+
+Add dynamic parameters to your snippets for flexible reuse:
+
+```nu
+# Create a snippet with parameters (use triple braces {{{param}}})
+snip new svc-logs "journalctl -fu {{{service}}} -q -o cat | grep -v '^'"
+snip new docker-ps "docker ps -a --format 'table {{.Names}}\t{{.Status}}' | grep {{{status}}}"
+
+# Add parameter values (stored for quick selection)
+snip params add svc-logs service=web-server service=api-gateway service=auth-service
+snip params add docker-ps status=Running status=Exited
+
+# View stored parameters
+snip params ls svc-logs
+╭─────────┬──────────────────────────────────────────╮
+│ service │ [web-server, api-gateway, auth-service]  │
+╰─────────┴──────────────────────────────────────────╯
+
+# Run snippet - fzf will prompt for parameter selection
+snip run svc-logs
+# → Shows fzf menu with: web-server, api-gateway, auth-service
+
+# Force interactive selection even when parameters are stored
+snip run svc-logs -i
+snip paste docker-ps -i
+
+# Remove specific parameter values
+snip params rm svc-logs service=web-server
+snip params rm svc-logs service=api-gateway service=auth-service
+
+# Remove entire parameter
+snip params rm docker-ps status
+
+# Cancel selection - press ESC in fzf to silently cancel the operation
+```
+
+**Why triple braces `{{{param}}}`?**
+- Avoids conflicts with docker format strings like `{{.Names}}`
+- Clear distinction from template syntax
+
+**Interactive-only parameters with `:i` modifier:**
+
+For parameters that should always require manual input (never use stored values):
+
+```nu
+# Create snippet with interactive-only parameter
+snip new docker-exec "docker exec -it {{{container}}} {{{command:i}}}"
+
+# Add stored values for container
+snip params add docker-exec container=web-app container=db-server
+
+# Try to add values for interactive parameter - will error
+snip params add docker-exec command=/bin/bash
+# Error: Cannot add values for interactive parameters: command
+
+# Run snippet - 'container' uses fzf, 'command' always prompts for input
+snip run docker-exec
+```
+
+**When to use `:i` modifier:**
+- One-time values that vary each time (like commit messages, search queries)
+- Dynamic input that depends on context (like timestamps, custom flags)
+- Values that shouldn't be stored or persisted between runs
+
+**Parameter workflow:**
+1. Create snippet with `{{{param}}}` or `{{{param:i}}}` placeholders
+2. Add parameter values with `snip params add name key=value` (only for non-`:i` params)
+3. Run snippet - fzf shows stored values, `:i` params always prompt for input
+4. Use `-i` flag to force all parameters to prompt interactively
+5. Press ESC to cancel or select/enter a value to execute
 
 ### Pipe Support
 
@@ -245,18 +316,23 @@ snip ls
 
 ### Snippet Commands
 
-| Command               | Description               | Example                                        |
-|-----------------------|---------------------------|------------------------------------------------|
-| `snip ls`             | List all snippets         | `snip ls`                                      |
-| `snip new`            | Create new snippet        | `snip new test "echo test"`                    |
-| `snip update`         | Update snippet            | `snip update test "echo updated"`              |
-| `snip rm`             | Remove snippet(s)         | `snip rm a b` or `["a", "b"] \| snip rm`       |
-| `snip run`            | Execute snippet           | `snip run test` or `snip -r test`              |
-| `snip show`           | Show snippet details      | `snip show test`                               |
-| `snip paste`          | Paste to buffer/clipboard | `snip paste test -c`                           |
-| `snip config`         | Show configuration        | `snip config`                                  |
-| `snip history`        | Show Git history          | `snip history --limit 20`                      |
-| `snip history revert` | Revert to commit          | `snip history revert a3c4d5f`                  |
+| Command               | Description                     | Example                                  |
+|-----------------------|---------------------------------|------------------------------------------|
+| *`snipx`*             | *Quick interactive run (alias)* | *`snipx` (same as `snip pick -r`)*       |
+| `snip ls`             | List all snippets               | `snip ls`                                |
+| `snip new`            | Create new snippet              | `snip new test "echo test"`              |
+| `snip update`         | Update snippet                  | `snip update test "echo updated"`        |
+| `snip rm`             | Remove snippet(s)               | `snip rm a b` or `["a", "b"] \| snip rm` |
+| `snip run`            | Execute snippet                 | `snip run test` or `snip -r test`        |
+| `snip show`           | Show snippet details            | `snip show test`                         |
+| `snip paste`          | Paste to buffer/clipboard       | `snip paste test -c`                     |
+| `snip pick`           | Interactive snippet selection   | `snip pick -r` or `snip pick -c`         |
+| `snip params add`     | Add parameter values to snippet | `snip params add test env=dev env=prod`  |
+| `snip params ls`      | List snippet parameters         | `snip params ls test`                    |
+| `snip params rm`      | Remove parameter values         | `snip params rm test env=dev`            |
+| `snip config`         | Show configuration              | `snip config`                            |
+| `snip history`        | Show Git history                | `snip history --limit 20`                |
+| `snip history revert` | Revert to commit                | `snip history revert a3c4d5f`            |
 
 ### Source Commands
 
@@ -274,6 +350,7 @@ snip ls
 - `--description <text>` - Add description (for new, update)
 - `--clipboard / -c` - Copy to clipboard (for paste, pick)
 - `--run / -r` - Run snippet immediately (for pick subcommand)
+- `--interactive / -i` - Force interactive input for all parameters, ignoring stored values (for run, paste, pick)
 - `--limit <n>` - Limit output rows (for history)
 - `--from-hash <hash>` - Load snippets from a specific commit (for ls, show, run, paste, source ls)
 

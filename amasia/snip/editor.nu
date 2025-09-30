@@ -2,6 +2,7 @@
 
 use storage.nu [list-sources save-snip-sources snip-source-path]
 use history.nu [commit-changes make-commit-message]
+use params.nu [parse-placeholders]
 
 def nuon-string [s: string] {
   # Use to nuon for proper escaping, then strip list brackets
@@ -43,6 +44,14 @@ def format-snippet-entry [e: record] {
     $lines = ($lines | append $"      (nuon-string $cmd)")
   }
   $lines = ($lines | append "    ]")
+
+  # Include parameters if they exist
+  let has_params = ($e | columns | any {|c| $c == "parameters" })
+  if $has_params {
+    let params_nuon = ($e.parameters | to nuon)
+    $lines = ($lines | append $"    parameters: ($params_nuon)")
+  }
+
   $lines = ($lines | append "  }")
   $lines | str join "\n"
 }
@@ -212,6 +221,7 @@ export def --env "update" [
   name?: string@"nu-complete snip names",                   # snippet name (positional argument)
   --source: string@"nu-complete snip sources" = "",         # source file to update in
   --description: string = "",    # optional new description
+  --yes(-y),                     # skip confirmation when removing parameters
   ...positional_commands: any     # optional commands provided positionally; can be list or strings
 ] {
   # Capture stdin immediately for commands
@@ -324,18 +334,67 @@ export def --env "update" [
     })
   }
 
+  # Parse placeholders to get only normal (non-interactive) params
+  let new_parsed = (parse-placeholders $normalized_commands)
+  let new_normal_placeholders = $new_parsed.normal
+
+  # Find the target entry for confirmation check
+  let target_entry = ($entries | where name == $trimmed_name | first)
+
+  # Check if parameters will be removed and ask for confirmation BEFORE updating
+  if ($target_entry | columns | any {|c| $c == "parameters"}) {
+    let old_params = $target_entry.parameters
+    let removed_params = (
+      $old_params
+      | transpose key val
+      | where {|row| not ($new_normal_placeholders | any {|p| $p == $row.key})}
+    )
+
+    # If parameters will be removed and not --yes, ask for confirmation
+    if (not ($removed_params | is-empty)) and (not $yes) {
+      let removed_names = ($removed_params | get key | str join ", ")
+      print $"Warning: The following parameters will be removed: ($removed_names)"
+      let confirm = (input "Continue? [y/N]: ")
+      if ($confirm | str downcase) != "y" {
+        print "Update cancelled"
+        return
+      }
+    }
+  }
+
   # Update the snippet
   let updated_entries = (
     $entries
     | each {|entry|
       if $entry.name == $trimmed_name {
-        mut updated = $entry
-        $updated.commands = $normalized_commands
+        mut updated = ($entry | upsert commands $normalized_commands)
+
         # Update description if provided
         let trimmed_description = ($description | into string | str trim)
         if ($trimmed_description | str length) > 0 {
           $updated = ($updated | upsert description $trimmed_description)
         }
+
+        # Clean up parameters if they exist - remove only params whose normal placeholders are gone
+        # Interactive parameters (:i) should never be stored, so we only check normal placeholders
+        if ($entry | columns | any {|c| $c == "parameters"}) {
+          let old_params = $entry.parameters
+          # Filter parameters to keep only those that exist in new normal placeholders
+          let filtered_params = (
+            $old_params
+            | transpose key val
+            | where {|row| $new_normal_placeholders | any {|p| $p == $row.key}}
+            | reduce -f {} {|row, acc| $acc | insert $row.key $row.val }
+          )
+
+          # If filtered params is empty, remove the parameters field entirely
+          if ($filtered_params | columns | is-empty) {
+            $updated = ($updated | reject parameters)
+          } else {
+            $updated = ($updated | upsert parameters $filtered_params)
+          }
+        }
+
         $updated
       } else {
         $entry
@@ -357,6 +416,7 @@ export def --env "update" [
 # Remove one or more snippets by name or index; optional --source when names collide
 export def --env "rm" [
   --source: string@"nu-complete snip sources" = "",
+  --yes(-y),                                           # skip confirmation prompt
   ...targets: string@"nu-complete snip names"          # one or more names/indices; if empty, can be piped
 ] {
   # Capture stdin immediately
@@ -377,6 +437,21 @@ export def --env "rm" [
     }
   } else {
     $arg_targets
+  }
+
+  # Ask for confirmation if not --yes
+  if (not $yes) {
+    let count = ($targets | length)
+    let names_str = if $count == 1 {
+      $"'($targets | first)'"
+    } else {
+      $"($count) snippets"
+    }
+    let confirm = (input $"Remove ($names_str)? [y/N]: ")
+    if ($confirm | str downcase) != "y" {
+      print "Removal cancelled"
+      return
+    }
   }
 
   # Process each target

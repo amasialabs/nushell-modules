@@ -856,3 +856,4 @@ fabric.properties
 .development.env
 
 .claude/
+CLAUDE.md

@@ -5,7 +5,8 @@ use history.nu [commit-changes init-git-repo get-sources-at-commit]
 
 # Remove a source file by name
 export def --env "source rm" [
-  name: string@"nu-complete snip sources"         # source name to remove
+  name: string@"nu-complete snip sources",        # source name to remove
+  --yes(-y)                                        # skip confirmation prompt
 ] {
   if ($name == "default") {
     error make { msg: "Cannot remove the default source" }
@@ -14,6 +15,15 @@ export def --env "source rm" [
   let source_path = (snip-source-path $name)
   if not ($source_path | path exists) {
     error make { msg: $"Source '($name)' not found" }
+  }
+
+  # Ask for confirmation unless --yes flag is used
+  if (not $yes) {
+    let confirm = (input $"Remove source '($name)'? [y/N]: ")
+    if ($confirm | str downcase) != "y" {
+      print "Removal cancelled"
+      return
+    }
   }
 
   rm $source_path

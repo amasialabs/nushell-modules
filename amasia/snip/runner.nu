@@ -2,6 +2,7 @@
 
 use storage.nu [list-sources snip-source-path]
 use history.nu [get-file-at-commit get-sources-at-commit]
+use params.nu [extract-placeholders select-params-interactive apply-params-to-snippet load-snippet-with-params]
 
 # Try a single clipboard command and return status
 def try-clipboard-command [text: string, command: string, desc: string, args: list<string> = []] {
@@ -131,11 +132,25 @@ def parse-snippet [
     ""
   }
 
-  {
+  # Preserve parameters if present
+  let parameters = if ($snip | columns | any {|c| $c == "parameters"}) {
+    $snip.parameters
+  } else {
+    null
+  }
+
+  let base_record = {
     name: $name,
     commands: $commands_list,
     description: $description,
     source: $source_name
+  }
+
+  # Add parameters field if it exists
+  if $parameters != null {
+    $base_record | insert parameters $parameters
+  } else {
+    $base_record
   }
 }
 
@@ -226,12 +241,12 @@ export def --env "ls" [
     load-all-snip-at-commit $from_hash
   }
 
-  $snippets | reject description
+  $snippets | select name source commands
 }
 
 
 # Get a specific snippet by name or row index; optional disambiguation by source id
-def get [
+def get-snippet [
   target: string,           # snippet name or numeric row index from `ls`
   --source: string = "",  # disambiguate when multiple names exist
   --from-hash: string = ""  # load snippets from a specific commit hash
@@ -285,7 +300,9 @@ export def --env "paste" [
   target?: string@"nu-complete snip names",           # snippet name or row index (optional, can be piped)
   --source: string@"nu-complete snip sources" = "",  # disambiguate when names collide
   --clipboard(-c),           # copy only to clipboard
-  --from-hash: string = ""  # load snippets from a specific commit hash
+  --from-hash: string = "",  # load snippets from a specific commit hash
+  --params: record = {},  # parameters to substitute in snippet
+  --interactive(-i)  # force interactive parameter selection even if stored values exist
 ] {
   # Capture stdin immediately before optional parameters consume it
   let stdin_input = $in
@@ -300,7 +317,20 @@ export def --env "paste" [
     $target
   }
 
-  let snip = (get $actual_target --source $source --from-hash $from_hash)
+  mut snip = (get-snippet $actual_target --source $source --from-hash $from_hash)
+
+  # Load full snippet with parameters if needed
+  let placeholders = (extract-placeholders $snip.commands)
+  if (not ($placeholders | is-empty)) {
+    let full_snippet = (load-snippet-with-params $snip.name $snip.source)
+    let selected_params = (select-params-interactive $full_snippet $params $interactive)
+    # If user cancelled parameter selection, exit silently
+    if $selected_params == null {
+      return
+    }
+    $snip = (apply-params-to-snippet $snip $selected_params)
+  }
+
   let text = ($snip.commands | str join "\n")
 
   let do_clipboard = $clipboard
@@ -343,7 +373,9 @@ export def --env "paste" [
 export def "run" [
   target?: string@"nu-complete snip names",           # snip name or row index (optional, can be piped)
   --source: string@"nu-complete snip sources" = "",   # disambiguate when names collide
-  --from-hash: string = ""  # load snippets from a specific commit hash
+  --from-hash: string = "",  # load snippets from a specific commit hash
+  --params: record = {},  # parameters to substitute in snippet
+  --interactive(-i)  # force interactive parameter selection even if stored values exist
 ] {
   # Capture stdin immediately before optional parameters consume it
   let stdin_input = $in
@@ -358,7 +390,20 @@ export def "run" [
     $target
   }
 
-  let snip = (get $actual_target --source $source --from-hash $from_hash)
+  mut snip = (get-snippet $actual_target --source $source --from-hash $from_hash)
+
+  # Load full snippet with parameters if needed
+  let placeholders = (extract-placeholders $snip.commands)
+  if (not ($placeholders | is-empty)) {
+    let full_snippet = (load-snippet-with-params $snip.name $snip.source)
+    let selected_params = (select-params-interactive $full_snippet $params $interactive)
+    # If user cancelled parameter selection, exit silently
+    if $selected_params == null {
+      return
+    }
+    $snip = (apply-params-to-snippet $snip $selected_params)
+  }
+
   for $cmd in $snip.commands {
     nu -c $cmd
   }
@@ -368,7 +413,9 @@ export def "run" [
 export def "pick" [
   --clipboard(-c),  # copy selected snippet to clipboard
   --run(-r),        # run selected snippet
-  --source: string = ""  # filter by source id
+  --source: string = "",  # filter by source id
+  --params: record = {},  # parameters to substitute in snippet
+  --interactive(-i)  # force interactive parameter selection even if stored values exist
 ] {
   let input = $in
 
@@ -441,11 +488,23 @@ export def "pick" [
   let selected_source = ($selected_parts | skip 1 | first | str trim)
 
   if $run {
-    run $selected_name --source $selected_source
+    if $interactive {
+      run $selected_name --source $selected_source --params $params --interactive
+    } else {
+      run $selected_name --source $selected_source --params $params
+    }
   } else if $clipboard {
-    paste $selected_name --clipboard --source $selected_source
+    if $interactive {
+      paste $selected_name --clipboard --source $selected_source --params $params --interactive
+    } else {
+      paste $selected_name --clipboard --source $selected_source --params $params
+    }
   } else {
-    paste $selected_name --source $selected_source
+    if $interactive {
+      paste $selected_name --source $selected_source --params $params --interactive
+    } else {
+      paste $selected_name --source $selected_source --params $params
+    }
   }
 }
 
@@ -468,5 +527,5 @@ export def "show" [
     $target
   }
 
-  get $actual_target --source $source --from-hash $from_hash
+  get-snippet $actual_target --source $source --from-hash $from_hash
 }
