@@ -58,5 +58,6 @@ if $updated {
     print $"  Modules deployed. Run the command below or restart your shell to apply the changes:\n"
     print $"   ($source_line)\n"    
     print $"   use amasia/snip; alias snipx = snip pick -r\n"   
-    print $"Then try:\n   snip --version\n   snipx"
+    print $"   use amasia/remind; # Experimental!\n"   
+    print $"Then try:\n   snip --version\n   snipx\n   remind --version"
 }

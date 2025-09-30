@@ -1,4 +1,36 @@
-# amasia/snip
+# Amasia Nushell Modules
+
+A collection of modules for [Nushell](https://www.nushell.sh/)
+
+## Modules
+
+- [**Snip**](#snip) — Snippet manager with Git-based version control
+- [**Remind**](#remind) — Simple reminder system with job-based scheduling *(Experimental, macOS recommended)*
+
+## Installation
+
+Install all modules with one command:
+
+```nu
+# One-line install for all modules
+http get https://raw.githubusercontent.com/amasialabs/nushell-modules/main/install.nu | nu -c $in
+```
+
+```nu
+# Source the config (or restart your shell)
+source "~/.amasia/nushell/config.nu"
+
+# Load modules
+use amasia/snip
+use amasia/remind
+
+# Verify installation
+snip --version
+remind --version
+```
+---
+
+# Snip
 
 A simple snippet manager for [Nushell](https://www.nushell.sh/) that helps you organize and run reusable commands with Git-based version control.
 
@@ -17,23 +49,9 @@ https://github.com/user-attachments/assets/be3860d3-949f-4b6c-a778-de2ff3453497
 
 ## Quick Start
 
-### Installation
-
 ```nu
-# One-line install
-http get https://raw.githubusercontent.com/amasialabs/nushell-modules/main/install.nu | nu -c $in
-```
-```nu
-# Source the config
-source "~/.amasia/nushell/config.nu"
-```
-```nu
-# Do not forget
+# Do not forget to add alias for quick access
 use amasia/snip; alias snipx = snip pick -r
-```
-```nu
-# Verify installation
-snip --version
 ```
 
 ### Your First Snippet
@@ -469,6 +487,69 @@ Every change to your snippets is automatically committed to a local Git reposito
 # View what changed recently
 snip history --limit 5
 ```
+
+---
+
+# Remind
+
+A simple reminder system for [Nushell](https://www.nushell.sh/) using background jobs for delayed notifications.
+
+> **⚠️ Experimental Feature**: This module uses Nushell's experimental `job spawn` feature. Recommended primarily for macOS with native notification support. Linux and other platforms may have limited notification capabilities.
+
+## Features
+
+- **Set reminders** by duration or specific time
+- **Background jobs** — non-blocking execution
+- **Session storage** — reminders persist until shell exit
+- **System notifications** — macOS, Linux with fallback
+- **View history** — upcoming and past reminders
+
+## Quick Start
+
+```nu
+use amasia/remind
+
+# Set reminder in seconds/minutes/hours
+remind in 3min "Coffee is on the stove!"
+remind in 25min "Daily standup meeting"
+remind in 2h "Take a break!"
+
+# Set reminders for specific times
+remind at 12:30 "Lunch break"
+
+# With custom title
+remind at 12:00 "Lunch time - step away!" --title "Break"
+
+# List all reminders
+remind
+
+# Output example:
+# Upcoming reminders:
+#  #   id   type   time      message          trigger_at
+#  0    3   at     20:45   Tea                in 2 minutes
+#  1    4   at     20:46   Tea recheck        in 3 minutes
+#
+# Past reminders:
+#  #   id   type   time      message          trigger_at
+#  0    2   in     10s    Coffee again!!      2 minutes ago
+#  1    1   in     10s    Coffee!!            4 minutes ago
+```
+
+## How Notifications Work
+
+### macOS
+Uses `osascript` for native notifications (built-in).
+
+### Linux
+Tries `notify-send` (requires desktop environment with D-Bus):
+
+### Fallback (not recommended)
+Uses `echo` for fallback notifications.
+Prints a colored message to terminal:
+```
+Reminder: Zoom call!
+```
+---
 
 ## License
 
