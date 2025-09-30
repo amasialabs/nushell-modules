@@ -89,7 +89,10 @@ Note: flags (e.g., `--source`, `--description`) can be placed before or after po
 
 ```nu
 snip new demo --source work "echo hi"
+
+# Or
 snip new demo "echo hi" --source work
+
 snip update demo --source work "echo hi"
 snip update demo "echo hi" --source work
 ```
@@ -139,10 +142,10 @@ Sources let you organize snippets by context (work, personal, project-specific):
 
 ```nu
 # Create a new source
-snip source new work
+snip source new pet-project
 
 # Add snippet to specific source
-snip new ssh-prod --source work "ssh user@prod.example.com"
+snip new ssh-myserver --source pet-project "ssh user@prod.example.com"
 
 # List sources
 snip source ls
@@ -156,7 +159,7 @@ snip source --from-hash <h> # sugar for `source ls --from-hash <h>`
 ╰───┴─────────╯
 
 # Remove source (cannot remove default)
-snip source rm work
+snip source rm pet-project
 ```
 
 ## Advanced Usage

@@ -132,9 +132,23 @@ export def --env "new" [
   let target = if ($source | str trim | str length) > 0 {
     let matches = ($sources | where name == $source)
     if (($matches | length) == 0) {
-      error make { msg: $"Snippet source '($source)' not found." }
+      # Source doesn't exist, create it
+      print $"Source '($source)' not found, creating it..."
+      let source_path = (snip-source-path $source)
+      let parent = ($source_path | path dirname)
+      if (not ($parent | path exists)) {
+        mkdir $parent
+      }
+      "[]
+" | save -f --raw $source_path
+      # Return new source record
+      {
+        name: $source,
+        is_default: false
+      }
+    } else {
+      $matches | first
     }
-    $matches | first
   } else {
     # Always use default source when no source is specified
     let defaults = ($sources | where is_default)
