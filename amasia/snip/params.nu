@@ -598,9 +598,9 @@ export def select-params-interactive [
         if ($selected_line | is-empty) {
           null
         } else {
-          # Extract value part (before TAB)
+          # Extract value part (before TAB) and trim trailing spaces
           let parts = ($selected_line | split row "\t")
-          $parts | first
+          $parts | first | str trim
         }
       } else {
         # Manual input (always for interactive params, or when no options)
