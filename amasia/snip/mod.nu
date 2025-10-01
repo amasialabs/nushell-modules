@@ -1,7 +1,7 @@
 # amasia/snip/mod.nu - snip module
 
 # Version constant
-const SNIP_VERSION = "0.2.3"
+const SNIP_VERSION = "0.3.0"
 
 # Export storage helpers
 use storage.nu [list-sources snip-source-path]
@@ -12,7 +12,7 @@ export use files.nu ["source rm" "source ls" "source new"]
 
 # Export snippet runner commands
 use runner.nu
-export use runner.nu ["ls" "run" "show" "paste" "pick"]
+export use runner.nu ["ls" "run" "show" "paste" "pick" "prepare"]
 
 # Export config command
 use conf.nu
@@ -430,6 +430,33 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
         paste $parsed.target --source $parsed.source --from-hash $parsed.from_hash
       } else {
         paste $parsed.target --source $parsed.source --from-hash $parsed.from_hash --clipboard
+      }
+    }
+  } else if ($cmd == "prepare") {
+    let parsed = (parse-runshow-args $rest)
+    let use_stdin = ($parsed.target | is-empty) and (not ($stdin_input | is-empty))
+    let has_source = (not ($parsed.source | is-empty))
+    let has_from = (not ($parsed.from_hash | is-empty))
+
+    if $use_stdin {
+      if (not $has_source) and (not $has_from) {
+        $stdin_input | prepare
+      } else if (not $has_source) and $has_from {
+        $stdin_input | prepare --from-hash $parsed.from_hash
+      } else if $has_source and (not $has_from) {
+        $stdin_input | prepare --source $parsed.source
+      } else {
+        $stdin_input | prepare --source $parsed.source --from-hash $parsed.from_hash
+      }
+    } else {
+      if (not $has_source) and (not $has_from) {
+        prepare $parsed.target
+      } else if (not $has_source) and $has_from {
+        prepare $parsed.target --from-hash $parsed.from_hash
+      } else if $has_source and (not $has_from) {
+        prepare $parsed.target --source $parsed.source
+      } else {
+        prepare $parsed.target --source $parsed.source --from-hash $parsed.from_hash
       }
     }
   } else if ($cmd == "source") {

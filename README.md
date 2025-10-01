@@ -254,6 +254,38 @@ snip run docker-exec
 4. Use `-i` flag to force all parameters to prompt interactively
 5. Press ESC to cancel or select/enter a value to execute
 
+### Composing Snippets
+
+Use `snip prepare` to get snippet commands as text (with parameters already substituted), enabling composition of multiple snippets:
+
+```nu
+# Create some simple snippets
+snip new greet "print 'Hello'"
+snip new bye "print 'Goodbye'"
+
+# Get snippet command as string
+snip prepare greet
+# Output: print 'Hello'
+
+# Create composite snippet that calls other snippets dynamically
+snip new multi-cmd 'use amasia/snip; [(snip prepare greet) (snip prepare bye)] | str join " ; " | nu -c $in'
+
+# Run it - each prepare call fetches the latest snippet
+snip run multi-cmd
+# Output:
+# Hello
+# Goodbye
+
+# Or compose on the fly
+nu -c $"(snip prepare greet) ; (snip prepare bye)"
+```
+
+**Use cases:**
+- Chain multiple snippets into workflows
+- Build complex commands from reusable pieces
+- Create meta-snippets that compose other snippets
+- Parameters are resolved at runtime for each snippet
+
 ### Pipe Support
 
 All commands work with pipes for powerful workflows:
@@ -340,23 +372,24 @@ snip ls
 
 ### Snippet Commands
 
-| Command               | Description                     | Example                                  |
-|-----------------------|---------------------------------|------------------------------------------|
-| *`snipx`*             | *Quick interactive run (alias)* | *`snipx` (same as `snip pick -r`)*       |
-| `snip ls`             | List all snippets               | `snip ls`                                |
-| `snip new`            | Create new snippet              | `snip new test "echo test"`              |
-| `snip update`         | Update snippet                  | `snip update test "echo updated"`        |
-| `snip rm`             | Remove snippet(s)               | `snip rm a b` or `["a", "b"] \| snip rm` |
-| `snip run`            | Execute snippet                 | `snip run test` or `snip -r test`        |
-| `snip show`           | Show snippet details            | `snip show test`                         |
-| `snip paste`          | Paste to buffer/clipboard       | `snip paste test -c`                     |
-| `snip pick`           | Interactive snippet selection   | `snip pick -r` or `snip pick -c`         |
-| `snip params add`     | Add parameter values to snippet | `snip params add test env=dev env=prod`  |
-| `snip params ls`      | List snippet parameters         | `snip params ls test`                    |
-| `snip params rm`      | Remove parameter values         | `snip params rm test env=dev`            |
-| `snip config`         | Show configuration              | `snip config`                            |
-| `snip history`        | Show Git history                | `snip history --limit 20`                |
-| `snip history revert` | Revert to commit                | `snip history revert a3c4d5f`            |
+| Command               | Description                              | Example                                  |
+|-----------------------|------------------------------------------|------------------------------------------|
+| *`snipx`*             | *Quick interactive run (alias)*          | *`snipx` (same as `snip pick -r`)*       |
+| `snip ls`             | List all snippets                        | `snip ls`                                |
+| `snip new`            | Create new snippet                       | `snip new test "echo test"`              |
+| `snip update`         | Update snippet                           | `snip update test "echo updated"`        |
+| `snip rm`             | Remove snippet(s)                        | `snip rm a b` or `["a", "b"] \| snip rm` |
+| `snip run`            | Execute snippet                          | `snip run test` or `snip -r test`        |
+| `snip show`           | Show snippet details                     | `snip show test`                         |
+| `snip paste`          | Paste to buffer/clipboard                | `snip paste test -c`                     |
+| `snip prepare`        | Get snippet as text (params substituted) | `snip prepare test`                      |
+| `snip pick`           | Interactive snippet selection            | `snip pick -r` or `snip pick -c`         |
+| `snip params add`     | Add parameter values to snippet          | `snip params add test env=dev env=prod`  |
+| `snip params ls`      | List snippet parameters                  | `snip params ls test`                    |
+| `snip params rm`      | Remove parameter values                  | `snip params rm test env=dev`            |
+| `snip config`         | Show configuration                       | `snip config`                            |
+| `snip history`        | Show Git history                         | `snip history --limit 20`                |
+| `snip history revert` | Revert to commit                         | `snip history revert a3c4d5f`            |
 
 ### Source Commands
 

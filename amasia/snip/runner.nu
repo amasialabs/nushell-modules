@@ -369,6 +369,44 @@ export def --env "paste" [
   }
 }
 
+# Get snippet commands as string output (with parameters substituted)
+export def "prepare" [
+  target?: string@"nu-complete snip names",           # snippet name or row index (optional, can be piped)
+  --source: string@"nu-complete snip sources" = "",  # disambiguate when names collide
+  --from-hash: string = "",  # load snippets from a specific commit hash
+  --params: record = {},  # parameters to substitute in snippet
+  --interactive(-i)  # force interactive parameter selection even if stored values exist
+] {
+  # Capture stdin immediately before optional parameters consume it
+  let stdin_input = $in
+
+  # Get target from argument or stdin
+  let actual_target = if ($target | is-empty) {
+    if ($stdin_input | is-empty) {
+      error make { msg: "Target argument is required (either as argument or piped input)." }
+    }
+    $stdin_input | str trim
+  } else {
+    $target
+  }
+
+  mut snip = (get-snippet $actual_target --source $source --from-hash $from_hash)
+
+  # Load full snippet with parameters if needed
+  let placeholders = (extract-placeholders $snip.commands)
+  if (not ($placeholders | is-empty)) {
+    let full_snippet = (load-snippet-with-params $snip.name $snip.source)
+    let selected_params = (select-params-interactive $full_snippet $params $interactive)
+    # If user cancelled parameter selection, exit silently
+    if $selected_params == null {
+      return
+    }
+    $snip = (apply-params-to-snippet $snip $selected_params)
+  }
+
+  $snip.commands | str join "\n"
+}
+
 # Execute a snippet by name
 export def "run" [
   target?: string@"nu-complete snip names",           # snip name or row index (optional, can be piped)
@@ -404,8 +442,10 @@ export def "run" [
     $snip = (apply-params-to-snippet $snip $selected_params)
   }
 
+  # Pass current library paths to subprocess
+  let lib_dirs = ($env.NU_LIB_DIRS | str join (char record_sep))
   for $cmd in $snip.commands {
-    nu -c $cmd
+    nu -I $lib_dirs -c $cmd
   }
 }
 
