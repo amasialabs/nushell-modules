@@ -186,7 +186,7 @@ snip source rm pet-project
 
 Add dynamic parameters to your snippets for flexible reuse:
 
-```nu
+```bash
 # Create a snippet with parameters (use triple braces {{{param}}})
 snip new svc-logs "journalctl -fu {{{service}}} -q -o cat | grep -v '^'"
 snip new docker-ps "docker ps -a --format 'table {{.Names}}\t{{.Status}}' | grep {{{status}}}"
@@ -249,7 +249,7 @@ snip params rm docker-ps status
 
 For parameters that should always require manual input (never use stored values):
 
-```nu
+```bash
 # Create snippet with interactive-only parameter
 snip new docker-exec "docker exec -it {{{container}}} {{{command:i}}}"
 
@@ -280,7 +280,7 @@ snip run docker-exec
 
 Use `snip prepare` to get snippet commands as text (with parameters already substituted), enabling composition of multiple snippets:
 
-```nu
+```bash
 # Create some simple snippets
 snip new greet "print 'Hello'"
 snip new bye "print 'Goodbye'"
@@ -304,7 +304,7 @@ nu -c $"(snip prepare greet) ; (snip prepare bye)"
 
 **Real-world example - composing SSH connection with parameters:**
 
-```nu
+```bash
 # Create reusable snippets with parameters
 snip new get-login-server "{{{login@server}}}"
 snip new get-ssh-key "{{{key}}}"
@@ -340,7 +340,7 @@ snip run ssh-et-key
 
 All commands work with pipes for powerful workflows:
 
-```nu
+```bash
 # Create snippet from a docker command
 "docker ps -a --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}' | grep -v Exited" | snip new docker-active
 
@@ -368,7 +368,7 @@ snip ls | where name =~ "deploy" | each {|s| snip show $s.name }
 
 Every change is automatically tracked in Git:
 
-```nu
+```bash
 # View history
 snip history
 ╭───┬─────────┬───────────────────────────┬────────────────────────────╮
@@ -412,7 +412,7 @@ snip history revert a3c4d5f --message "Restore working deployment scripts"
 
 - Override data directory with `AMASIA_NU_DATA_DIR` (default is `~/.amasia/nushell/data`). Useful for testing or portable setups.
 
-```nu
+```bash
 $env.AMASIA_NU_DATA_DIR = "/tmp/amasia-nu"
 use amasia/snip
 snip ls
@@ -464,13 +464,13 @@ snip ls
 ## Tips & Tricks
 
 ### 1. Quick Command Capture
-```nu
+```bash
 # Save last command as snippet
 history | last 1 | get command | snip new last-cmd
 ```
 
 ### 2. Project-Specific Snippets
-```nu
+```bash
 # Create project source
 snip source new myproject
 
@@ -480,7 +480,7 @@ snip new build --source myproject "cargo build --release"
 ```
 
 ### 3. Multi-Command Workflows
-```nu
+```bash
 # Complex deployment
 snip new deploy-full [
   "git stash"
@@ -501,7 +501,7 @@ snip new ssh-secure [
 ```
 
 ### 4. Filter and Execute
-```nu
+```bash
 # Run all test-related snippets
 snip ls | where name =~ "test" | each { |it| snip run $it.name }
 
@@ -525,7 +525,7 @@ All snippet data is stored in:
 ### Common Issues
 
 1. **Module is not found after installation**
-   ```nu
+   ```bash
    # Ensure the module is in the right path
    ls ~/.amasia/nushell/modules/amasia/snip/
 
@@ -534,7 +534,7 @@ All snippet data is stored in:
    ```
 
 2. **Git history is not working**
-   ```nu
+   ```bash
    # Check if Git is installed
    which git
 
@@ -549,7 +549,7 @@ All snippet data is stored in:
    - **Windows**: Uses built-in clipboard
 
 4. **Snippet with spaces in commands**
-   ```nu
+   ```bash
    # Use list syntax for complex commands
    snip new backup [
      "tar -czf backup.tar.gz ."
@@ -566,7 +566,7 @@ Every change to your snippets is automatically committed to a local Git reposito
 - **Recovery**: Restore deleted or modified snippets
 - **Collaboration**: Share your snippets repo with your team
 
-```nu
+```bash
 # View what changed recently
 snip history --limit 5
 ```
@@ -589,7 +589,7 @@ A simple reminder system for [Nushell](https://www.nushell.sh/) using background
 
 ## Quick Start
 
-```nu
+```bash
 use amasia/remind
 
 # Set reminder in seconds/minutes/hours
