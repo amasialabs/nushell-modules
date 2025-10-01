@@ -581,3 +581,100 @@ export def --env "rm" [
     commit-changes $commit_msg
   }
 }
+
+# Rename a snippet
+export def --env "rename" [
+  old_name: string@"nu-complete snip names",
+  new_name: string,
+  --source: string@"nu-complete snip sources" = "",
+  --yes(-y)  # skip confirmation prompt
+] {
+  let trimmed_old = ($old_name | str trim)
+  let trimmed_new = ($new_name | str trim)
+
+  if ($trimmed_old | is-empty) {
+    error make { msg: "Old snippet name cannot be empty" }
+  }
+  if ($trimmed_new | is-empty) {
+    error make { msg: "New snippet name cannot be empty" }
+  }
+
+  # Find source containing old snippet
+  let sources = (list-sources)
+  let all_snippets = (
+    $sources
+    | each {|src|
+      let path = (snip-source-path $src.name)
+      if ($path | path exists) {
+        let raw = (try { open $path --raw } catch { "" })
+        if ($raw | str trim | is-empty) {
+          []
+        } else {
+          let snips = (try { open $path } catch { [] })
+          $snips | each {|s| $s | insert source $src.name | insert source_path $path }
+        }
+      } else {
+        []
+      }
+    }
+    | flatten
+  )
+
+  let matches = if (not ($source | is-empty)) {
+    $all_snippets | where name == $trimmed_old and source == $source
+  } else {
+    $all_snippets | where name == $trimmed_old
+  }
+
+  if ($matches | is-empty) {
+    if ($source | is-empty) {
+      error make { msg: $"Snippet '($trimmed_old)' not found" }
+    } else {
+      error make { msg: $"Snippet '($trimmed_old)' not found in source '($source)'" }
+    }
+  }
+
+  if ($matches | length) > 1 {
+    let srcs = ($matches | get source | str join ", ")
+    error make { msg: $"Snippet '($trimmed_old)' found in multiple sources: ($srcs). Use --source to specify." }
+  }
+
+  let match = ($matches | first)
+  let target_source = $match.source
+  let source_path = $match.source_path
+
+  # Check if new name already exists in same source
+  let new_name_exists = ($all_snippets | any {|s| $s.name == $trimmed_new and $s.source == $target_source})
+  if $new_name_exists {
+    error make { msg: $"Snippet '($trimmed_new)' already exists in source '($target_source)'" }
+  }
+
+  # Ask for confirmation
+  if (not $yes) {
+    let confirm = (input $"Rename '($trimmed_old)' to '($trimmed_new)' in source '($target_source)'? [y/N]: ")
+    if ($confirm | str downcase) != "y" {
+      print "Rename cancelled"
+      return
+    }
+  }
+
+  # Load all snippets from source file
+  mut snippets = (open $source_path)
+
+  # Find and rename the snippet
+  $snippets = ($snippets | each {|s|
+    if $s.name == $trimmed_old {
+      $s | upsert name $trimmed_new
+    } else {
+      $s
+    }
+  })
+
+  # Save back to file
+  $snippets | save -f $source_path
+
+  # Commit
+  commit-changes (make-commit-message "Rename snippet" $trimmed_old $target_source)
+
+  print $"Renamed '($trimmed_old)' to '($trimmed_new)' in source '($target_source)'"
+}

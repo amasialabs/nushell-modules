@@ -327,6 +327,23 @@ r#'use amasia/snip; let sshkey = (snip prepare get-ssh-key); let loginServer = (
 
 # Now run - parameters are selected interactively via fzf
 snip run ssh-et-key
+
+# Advanced composition with conditional logic, timing, and null handling
+r#'timeit {
+  use amasia/snip;
+  snip run copy-pass;
+  let sshkey = (snip prepare get-ssh-key);
+  let loginServer = (snip prepare get-login-server);
+  if $sshkey != null {
+    et --ssh-option=$"IdentityFile=~/.ssh/($sshkey)" ($loginServer)
+  } else if $loginServer != null {
+    et $loginServer
+  }
+}'# | snip update ssh-et-all
+
+# This version handles ESC cancellation gracefully - if user cancels key selection,
+# connects without custom key; if both cancelled, doesn't connect
+snip run ssh-et-all
 ```
 
 **Use cases:**
@@ -429,6 +446,7 @@ snip ls
 | `snip new`            | Create new snippet                       | `snip new test "echo test"`              |
 | `snip update`         | Update snippet                           | `snip update test "echo updated"`        |
 | `snip rm`             | Remove snippet(s)                        | `snip rm a b` or `["a", "b"] \| snip rm` |
+| `snip rename`         | Rename a snippet                         | `snip rename old-name new-name --yes`    |
 | `snip run`            | Execute snippet                          | `snip run test` or `snip -r test`        |
 | `snip show`           | Show snippet details                     | `snip show test`                         |
 | `snip paste`          | Paste to buffer/clipboard                | `snip paste test -c`                     |

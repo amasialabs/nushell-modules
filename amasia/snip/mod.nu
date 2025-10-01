@@ -1,7 +1,7 @@
 # amasia/snip/mod.nu - snip module
 
 # Version constant
-const SNIP_VERSION = "0.4.1"
+const SNIP_VERSION = "0.5.0"
 
 # Export storage helpers
 use storage.nu [list-sources snip-source-path]
@@ -11,7 +11,7 @@ use files.nu
 export use files.nu ["source rm" "source ls" "source new"]
 
 # Export snippet runner commands
-use runner.nu
+use runner.nu 
 export use runner.nu ["ls" "run" "show" "paste" "pick" "prepare"]
 
 # Export config command
@@ -19,8 +19,7 @@ use conf.nu
 export use conf.nu ["config"]
 
 # Export snippet authoring commands
-use editor.nu
-export use editor.nu ["new" "update" "rm"]
+export use editor.nu [new update rm rename]
 
 # Import parameter management functions
 use params.nu [
@@ -466,6 +465,7 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
   } else if ($cmd == "source") {
     # Support sugar: `snip source` and `snip source --from-hash <hash>`
     if ($rest | is-empty) {
+      hide rename
       list-sources | select name | rename source
     } else {
       mut from_hash = ""
@@ -482,8 +482,10 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
         error make { msg: $"Unknown argument ($token)." }
       }
       if ($from_hash | is-empty) {
+        hide rename
         list-sources | select name | rename source
       } else {
+        hide rename
         history get-sources-at-commit $from_hash | select name | rename source
       }
     }
@@ -620,6 +622,7 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
 #   new <name> [cmd…]         Create a snippet (positional commands or stdin)
 #   update <name> [cmd…]      Update snippet (positional commands or stdin)
 #   rm <name> [more…]         Remove one or more snippets by name or index
+#   rename <old> <new>        Rename a snippet
 #   paste <name>              Stage the snippet in the REPL buffer and/or clipboard
 #   pick                      Select snippet interactively with fzf
 #   config                    Show effective configuration and environment
