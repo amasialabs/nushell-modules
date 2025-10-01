@@ -280,11 +280,39 @@ snip run multi-cmd
 nu -c $"(snip prepare greet) ; (snip prepare bye)"
 ```
 
+**Real-world example - composing SSH connection with parameters:**
+
+```nu
+# Create reusable snippets with parameters
+snip new get-login-server "{{{login@server}}}"
+snip new get-ssh-key "{{{key}}}"
+snip new copy-pass "pass -c {{{pass-path}}}"
+
+# Add parameter values
+snip params add get-login-server login@server=user@prod.example.com login@server=admin@10.0.0.1
+snip params add get-ssh-key key=id_ed25519 key=id_rsa
+snip params add copy-pass pass-path=servers/production pass-path=servers/staging
+
+# Simple composition - run one snippet, prepare another
+r#'use amasia/snip; snip run copy-pass; et $"(snip prepare get-login-server)"'# | snip update ssh-et
+
+# Note: copy-pass uses `run` (executes and copies to clipboard)
+#       get-login-server uses `prepare` (returns text for substitution)
+snip run ssh-et  # Password already in clipboard, just connect
+
+# Complex composition - combine multiple snippets with variables
+r#'use amasia/snip; let sshkey = (snip prepare get-ssh-key); let loginServer = (snip prepare get-login-server); et --ssh-option=$"IdentityFile=~/.ssh/($sshkey)" ($loginServer)'# | snip update ssh-et-key
+
+# Now run - parameters are selected interactively via fzf
+snip run ssh-et-key
+```
+
 **Use cases:**
 - Chain multiple snippets into workflows
 - Build complex commands from reusable pieces
 - Create meta-snippets that compose other snippets
 - Parameters are resolved at runtime for each snippet
+- Reuse common configuration fragments (servers, keys, paths)
 
 ### Pipe Support
 
