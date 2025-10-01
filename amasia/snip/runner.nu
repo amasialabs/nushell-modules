@@ -2,7 +2,7 @@
 
 use storage.nu [list-sources snip-source-path]
 use history.nu [get-file-at-commit get-sources-at-commit]
-use params.nu [extract-placeholders select-params-interactive apply-params-to-snippet load-snippet-with-params]
+use params.nu [extract-placeholders select-params-interactive apply-params-to-snippet load-snippet-with-params parse-param-list]
 
 # Try a single clipboard command and return status
 def try-clipboard-command [text: string, command: string, desc: string, args: list<string> = []] {
@@ -567,5 +567,22 @@ export def "show" [
     $target
   }
 
-  get-snippet $actual_target --source $source --from-hash $from_hash
+  let snippet = (get-snippet $actual_target --source $source --from-hash $from_hash)
+
+  # Parse parameters for display if they exist
+  if ($snippet | columns | any {|c| $c == "parameters"}) {
+    let parsed_params = (
+      $snippet.parameters
+      | transpose key values
+      | each {|row|
+          {
+            parameter: $row.key,
+            values: (parse-param-list $row.values)
+          }
+        }
+    )
+    $snippet | upsert parameters $parsed_params
+  } else {
+    $snippet
+  }
 }

@@ -195,11 +195,33 @@ snip new docker-ps "docker ps -a --format 'table {{.Names}}\t{{.Status}}' | grep
 snip params add svc-logs service=web-server service=api-gateway service=auth-service
 snip params add docker-ps status=Running status=Exited
 
+# Add parameter values with descriptions (shown in fzf selection)
+snip params add get-ssh-key key=id_ed25519#"Main SSH key" key=id_rsa#"Backup key"
+snip params add deploy-env env=production#"Live environment" env=staging#"Test environment"
+
 # View stored parameters
 snip params ls svc-logs
-╭─────────┬──────────────────────────────────────────╮
-│ service │ [web-server, api-gateway, auth-service]  │
-╰─────────┴──────────────────────────────────────────╯
+# Output:
+#  parameter │ values
+# ───────────┼────────────────────────────────────────────
+#  service   │ ╭───┬──────────────┬─────────────╮
+#            │ │ # │    value     │ description │
+#            │ ├───┼──────────────┼─────────────┤
+#            │ │ 0 │ web-server   │             │
+#            │ │ 1 │ api-gateway  │             │
+#            │ │ 2 │ auth-service │             │
+#            │ ╰───┴──────────────┴─────────────╯
+
+snip params ls get-ssh-key
+# Output:
+#  parameter │ values
+# ───────────┼────────────────────────────────────────────
+#  key       │ ╭───┬─────────────┬──────────────╮
+#            │ │ # │    value    │ description  │
+#            │ ├───┼─────────────┼──────────────┤
+#            │ │ 0 │ id_ed25519  │ Main SSH key │
+#            │ │ 1 │ id_rsa      │ Backup key   │
+#            │ ╰───┴─────────────┴──────────────╯
 
 # Run snippet - fzf will prompt for parameter selection
 snip run svc-logs

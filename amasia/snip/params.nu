@@ -3,6 +3,36 @@
 use storage.nu [snip-source-path list-sources]
 use history.nu [commit-changes]
 
+# Parse parameter string "value#description" into record
+# Supports escaped \# in value
+# Returns: {value: "...", description: "..."}
+def parse-param-string [input: string] {
+  # Replace \# with placeholder to avoid splitting on it
+  let escaped = ($input | str replace --all '\#' '<<<HASH>>>')
+
+  # Split on first unescaped #
+  let parts = ($escaped | split row '#' | take 2)
+
+  if ($parts | length) == 1 {
+    # No description - just value
+    let value = ($parts | first | str replace --all '<<<HASH>>>' '#')
+    {value: $value, description: ""}
+  } else {
+    # Has description - strip quotes from it
+    let value = ($parts | first | str replace --all '<<<HASH>>>' '#')
+    let desc_raw = ($parts | skip 1 | first | str replace --all '<<<HASH>>>' '#')
+    let desc = ($desc_raw | str trim --char '"' | str trim --char "'")
+    {value: $value, description: $desc}
+  }
+}
+
+# Parse list of parameter strings into records
+# Input: ["value1#desc1", "value2", "value3#desc3"]
+# Output: [{value: "value1", description: "desc1"}, {value: "value2", description: ""}, ...]
+export def parse-param-list [param_strings: list<string>] {
+  $param_strings | each {|s| parse-param-string $s}
+}
+
 # Parse placeholders from commands
 # Returns record: { normal: [names...], interactive: [names...] }
 export def parse-placeholders [commands: list<string>] {
@@ -122,26 +152,47 @@ export def update-snippet-params [
 ] {
   let resolved = (resolve-snippet-source $name $source)
   let source_path = $resolved.source_path
-  mut snippets = $resolved.snippets
-  let idx = $resolved.index
-  let snippet = ($snippets | skip $idx | first)
+  # Re-read snippets from file to get latest state
+  mut snippets = (open $source_path)
+  let matches = ($snippets | enumerate | where item.name == $name)
+  if ($matches | is-empty) {
+    error make { msg: $"Snippet '($name)' not found" }
+  }
+  let match_data = ($matches | first)
+  let idx = $match_data.index
+  let snippet = $match_data.item
 
   # Parse placeholders - separate normal from interactive
   let parsed = (parse-placeholders $snippet.commands)
   let valid_placeholders = $parsed.normal
   let interactive_placeholders = $parsed.interactive
 
-  # Parse key=value pairs into a record
+  # Get existing parameters from snippet
+  let existing_params = if ($snippet | columns | any {|c| $c == "parameters"}) {
+    $snippet.parameters
+  } else {
+    {}
+  }
+
+  # Parse key=value#description pairs - store as strings without quotes in description
   mut params = {}
   mut invalid_params = []
   mut interactive_params = []
   for $pair in $param_pairs {
     if not ($pair | str contains "=") {
-      error make { msg: $"Invalid parameter format: '($pair)'. Expected 'key=value'" }
+      error make { msg: $"Invalid parameter format: '($pair)'. Expected 'key=value' or 'key=value#description'" }
     }
     let parts = ($pair | split row "=" | take 2)
     let key = ($parts | first)
-    let val = ($parts | skip 1 | first)
+    let raw_val_desc = ($parts | skip 1 | first)
+
+    # Parse and normalize value#description to remove quotes from description
+    let parsed = (parse-param-string $raw_val_desc)
+    let val_desc = if ($parsed.description | is-empty) {
+      $parsed.value
+    } else {
+      $"($parsed.value)#($parsed.description)"
+    }
 
     # Check if parameter is interactive-only
     if ($interactive_placeholders | any {|p| $p == $key}) {
@@ -153,12 +204,39 @@ export def update-snippet-params [
       $invalid_params = ($invalid_params | append $key)
     }
 
-    # Append value to list for this key
-    if ($params | columns | any {|c| $c == $key}) {
-      let existing = ($params | get $key)
-      $params = ($params | upsert $key ($existing | append $val | uniq))
+    # Parse the new value
+    let val_parsed = (parse-param-string $val_desc)
+
+    # Check if exact same value+description already exists in DB
+    let exact_match_in_db = if ($existing_params | columns | any {|c| $c == $key}) {
+      let existing_vals = ($existing_params | get $key)
+      $existing_vals | any {|s|
+        let existing_parsed = (parse-param-string $s)
+        $existing_parsed.value == $val_parsed.value and $existing_parsed.description == $val_parsed.description
+      }
     } else {
-      $params = ($params | insert $key [$val])
+      false
+    }
+
+    # Check if exact same value+description already exists in batch
+    let exact_match_in_batch = if ($params | columns | any {|c| $c == $key}) {
+      let batch_vals = ($params | get $key)
+      $batch_vals | any {|s|
+        let batch_parsed = (parse-param-string $s)
+        $batch_parsed.value == $val_parsed.value and $batch_parsed.description == $val_parsed.description
+      }
+    } else {
+      false
+    }
+
+    # Add to params only if not exact duplicate
+    if not $exact_match_in_db and not $exact_match_in_batch {
+      if ($params | columns | any {|c| $c == $key}) {
+        let existing = ($params | get $key)
+        $params = ($params | upsert $key ($existing | append $val_desc))
+      } else {
+        $params = ($params | insert $key [$val_desc])
+      }
     }
   }
 
@@ -180,9 +258,15 @@ export def update-snippet-params [
     error make { msg: $"Invalid parameters: ($invalid_str). Valid parameters for '($name)': ($valid_str)" }
   }
 
-  # Update or add parameters field
+  # Exit early if nothing to add (all were duplicates)
+  if ($params | columns | is-empty) {
+    print $"Added parameters to '($name)':"
+    return
+  }
+
+  # Update or add parameters field - merge with replacement logic
   let updated_snippet = if ($snippet | columns | any {|c| $c == "parameters"}) {
-    # Merge with existing parameters
+    # Merge with existing parameters, replacing values with same value but different description
     let existing = $snippet.parameters
     let merged = (
       $params
@@ -192,7 +276,18 @@ export def update-snippet-params [
           let new_vals = $item.val
           if ($acc | columns | any {|c| $c == $k}) {
             let old_vals = ($acc | get $k)
-            $acc | upsert $k ($old_vals | append $new_vals | uniq)
+
+            # For each new value, remove old entries with same value (but possibly different description)
+            let new_vals_parsed = ($new_vals | each {|s| parse-param-string $s})
+            let filtered_old_vals = ($old_vals | where {|old_str|
+              let old_parsed = (parse-param-string $old_str)
+              # Keep old value only if its value doesn't match any new value
+              not ($new_vals_parsed | any {|new_p| $new_p.value == $old_parsed.value})
+            })
+
+            # Combine filtered old values with new values
+            let combined = ($filtered_old_vals | append $new_vals)
+            $acc | upsert $k $combined
           } else {
             $acc | insert $k $new_vals
           }
@@ -224,9 +319,17 @@ export def list-snippet-params [
   let snippet = (load-snippet-with-params $name $source)
 
   if ($snippet | columns | any {|c| $c == "parameters"}) {
+    # Parse parameters to show nested values table
     $snippet.parameters
+    | transpose key values
+    | each {|row|
+        {
+          parameter: $row.key,
+          values: (parse-param-list $row.values)
+        }
+      }
   } else {
-    {}
+    []
   }
 }
 
@@ -346,7 +449,8 @@ export def remove-snippet-param-values [
     if not $param_exists {
       $non_existing_params = ($non_existing_params | append $key)
     } else {
-      let existing_vals = ($initial_params | get $key)
+      let existing_vals_raw = ($initial_params | get $key)
+      let existing_vals = (parse-param-list $existing_vals_raw | each {|v| $v.value})
       let matching_vals = ($r.values | where {|v| $existing_vals | any {|x| $x == $v}})
       let non_matching_vals = ($r.values | where {|v| not ($existing_vals | any {|x| $x == $v})})
 
@@ -392,12 +496,16 @@ export def remove-snippet-param-values [
     | transpose key val
     | each {|row|
         let key = $row.key
-        let current_vals = $row.val
+        let current_vals_strings = $row.val
         if (not ($removal_map | columns | any {|c| $c == $key})) {
-          { $key: $current_vals }
+          { $key: $current_vals_strings }
         } else {
           let to_remove = ($removal_map | get $key | uniq)
-          let filtered = ($current_vals | where {|v| (not ($to_remove | any {|x| $x == $v })) })
+          # Filter strings by parsing and comparing values
+          let filtered = ($current_vals_strings | where {|s|
+            let parsed = (parse-param-string $s)
+            not ($to_remove | any {|x| $x == $parsed.value})
+          })
           if ($filtered | is-empty) { {} } else { { $key: $filtered } }
         }
       }
@@ -456,7 +564,8 @@ export def select-params-interactive [
       # Check if we have stored options for this parameter
       # If interactive=true or is_interactive_param, treat stored_params as empty to force user input
       let options = if (not $is_interactive_param) and ($stored_params | columns | any {|c| $c == $param_name}) {
-        ($stored_params | select $param_name | values | first)
+        let raw_options = ($stored_params | select $param_name | values | first)
+        parse-param-list $raw_options
       } else {
         []
       }
@@ -464,8 +573,19 @@ export def select-params-interactive [
       # Select value interactively
       let value = if (not $is_interactive_param) and (which fzf | is-not-empty) and (not ($options | is-empty)) {
         # Use fzf if available and we have options (not for interactive params)
-        let selected_value = ($options
-          | to text
+        # Format options with descriptions for fzf display: aligned by max value length
+        let max_len = ($options | each {|opt| $opt.value | str length} | math max)
+        let fzf_input = ($options | each {|opt|
+          if ($opt.description | is-empty) {
+            $opt.value
+          } else {
+            let padding = ($max_len - ($opt.value | str length))
+            let spaces = (if $padding > 0 { 1..$padding | each {|| " "} | str join "" } else { "" })
+            $"($opt.value)($spaces) \t# ($opt.description)"
+          }
+        } | str join "\n")
+
+        let selected_line = ($fzf_input
           | fzf --prompt $"($param_name)> "
                 --layout=reverse
                 --height=40%
@@ -475,17 +595,20 @@ export def select-params-interactive [
           | str trim)
 
         # If user cancelled (empty selection), mark as cancelled
-        if ($selected_value | is-empty) {
+        if ($selected_line | is-empty) {
           null
         } else {
-          $selected_value
+          # Extract value part (before TAB)
+          let parts = ($selected_line | split row "\t")
+          $parts | first
         }
       } else {
         # Manual input (always for interactive params, or when no options)
         let prompt = if ($options | is-empty) {
           $"Enter value for '($param_name)': "
         } else {
-          $"Enter value for '($param_name)' (available: ($options | str join ', ')): "
+          let opt_values = ($options | each {|o| $o.value} | str join ', ')
+          $"Enter value for '($param_name)' (available: ($opt_values)): "
         }
         input $prompt
       }

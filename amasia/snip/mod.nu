@@ -1,7 +1,7 @@
 # amasia/snip/mod.nu - snip module
 
 # Version constant
-const SNIP_VERSION = "0.3.0"
+const SNIP_VERSION = "0.4.0"
 
 # Export storage helpers
 use storage.nu [list-sources snip-source-path]
@@ -179,14 +179,18 @@ def "nu-complete snip params remove" [context: string, position:int] {
 
   # Check if snippet has stored parameters
   if ($snippet | columns | any {|c| $c == "parameters"}) {
-    # Generate only key=value pairs for removing specific values
+    # Import parse-param-list to extract values
+    use params.nu parse-param-list
+
+    # Generate only key=value pairs for removing specific values (without description)
     let pairs = (
       $snippet.parameters
       | transpose key values
       | each {|row|
           let key = $row.key
-          $row.values | each {|val|
-            $"($key)=($val)"
+          let parsed = (parse-param-list $row.values)
+          $parsed | each {|p|
+            $"($key)=($p.value)"
           }
         }
       | flatten
