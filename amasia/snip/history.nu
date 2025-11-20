@@ -29,6 +29,7 @@ export def init-git-repo [] {
     # Configure git for this repo only
     ^git config user.name "snip-history"
     ^git config user.email "snip@local"
+    ^git config core.autocrlf false
 
     # Create initial commit if there are files
     let files = (glob "*.nuon")
