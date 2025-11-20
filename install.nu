@@ -24,7 +24,7 @@ if ([$mods ".git"] | path join | path exists) {
 }
 
 const cfg_file      = ($cfg_dir | path join "config.nu")
-const source_line   = $'source "($cfg_file)"'
+const source_line   = $"source '($cfg_file)'"
 
 if not ($cfg_dir | path exists) { mkdir $cfg_dir }
 

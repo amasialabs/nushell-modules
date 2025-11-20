@@ -60,7 +60,8 @@ export def list-sources [] {
   let snip_dir = $paths.snip_dir
 
   # Get all .nuon files in the directory
-  let pattern = ($snip_dir | path join "*.nuon")
+  # Convert backslashes to forward slashes for glob (Windows compatibility)
+  let pattern = ($snip_dir | path join "*.nuon" | str replace --all '\' '/')
   let files = (glob $pattern)
 
   if ($files | is-empty) {
