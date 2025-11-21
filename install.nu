@@ -42,17 +42,17 @@ let cfg_block = ([
  
 $cfg_block | save -f $cfg_file
 
-let config_text = (open --raw $nu.config-path)
+mut config_text = (open --raw $nu.config-path)
 
 # Remove old source line with double quotes if it exists (migration from v0.5.0)
 let old_source_line = $'source "($cfg_file)"'
 if ($config_text | str contains $old_source_line) {
-    let updated_config = ($config_text | str replace $"($old_source_line)\n" "")
-    $updated_config | save -f $nu.config-path
+    $config_text = ($config_text | str replace $"($old_source_line)\n" "")
+    $config_text | save -f $nu.config-path
 }
 
 # Add new source line with single quotes if not present
-let config_text = (open --raw $nu.config-path)
+$config_text = (open --raw $nu.config-path)
 if not ($config_text | str contains $source_line) {
 
     if (($config_text | str length) > 0 and not ($config_text | str ends-with "\n")) {
