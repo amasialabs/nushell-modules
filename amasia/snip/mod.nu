@@ -1,7 +1,7 @@
 # amasia/snip/mod.nu - snip module
 
 # Version constant
-const SNIP_VERSION = "0.5.2"
+const SNIP_VERSION = "0.5.3"
 
 # Export storage helpers
 use storage.nu [list-sources snip-source-path]
