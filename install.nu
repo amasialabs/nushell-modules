@@ -45,9 +45,10 @@ $cfg_block | save -f $cfg_file
 mut config_text = (open --raw $nu.config-path)
 
 # Remove old source line with double quotes if it exists (migration from v0.5.0)
-let old_source_line = $'source "($cfg_file)"'
+let old_source_line = $"source \"($cfg_file)\""
 if ($config_text | str contains $old_source_line) {
-    $config_text = ($config_text | str replace $"($old_source_line)\n" "")
+    # Remove the line and any trailing newline
+    $config_text = ($config_text | str replace --all $"($old_source_line)\n" "" | str replace --all $old_source_line "")
     $config_text | save -f $nu.config-path
 }
 
