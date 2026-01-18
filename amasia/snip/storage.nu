@@ -35,7 +35,9 @@ export def snip-data-dir [] {
     let v = $env.AMASIA_NU_DATA_DIR
     if (($v | str length) > 0) { return $v }
   }
-  let base = ($nu.home-path | path join $amasia_root_dirname $amasia_shell_dirname)
+  # Support both nu < 0.110 (home-path) and nu >= 0.110 (home-dir)
+  let nu_home = (if ("home-dir" in ($nu | columns)) { $nu.home-dir } else { $nu.home-path })
+  let base = ($nu_home | path join $amasia_root_dirname $amasia_shell_dirname)
   $base | path join $data_root_dirname
 }
 
