@@ -297,11 +297,13 @@ export def --env "update" [
     | each {|src|
       let path = (snip-source-path $src.name)
       if ($path | path exists) {
-        let raw = (try { open $path --raw } catch { "" })
+        let raw = (open $path --raw)
         if ($raw | str trim | is-empty) {
           []
         } else {
-          let parsed = (try { $raw | from nuon } catch { [] })
+          let parsed = (try { $raw | from nuon } catch {|e|
+            error make { msg: $"Failed to parse source '($src.name)' at ($path): ($e.msg)" }
+          })
           $parsed | each {|snip| $snip | insert source_name $src.name | insert source_path $path }
         }
       } else {
@@ -606,11 +608,13 @@ export def --env "rename" [
     | each {|src|
       let path = (snip-source-path $src.name)
       if ($path | path exists) {
-        let raw = (try { open $path --raw } catch { "" })
+        let raw = (open $path --raw)
         if ($raw | str trim | is-empty) {
           []
         } else {
-          let snips = (try { open $path } catch { [] })
+          let snips = (try { $raw | from nuon } catch {|e|
+            error make { msg: $"Failed to parse source '($src.name)' at ($path): ($e.msg)" }
+          })
           $snips | each {|s| $s | insert source $src.name | insert source_path $path }
         }
       } else {
