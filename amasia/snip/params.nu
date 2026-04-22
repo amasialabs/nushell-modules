@@ -595,6 +595,12 @@ export def select-params-interactive [
         []
       }
 
+      # Refuse interactive prompting when we don't have a terminal - the
+      # caller must supply --params for these placeholders instead.
+      if (not (is-terminal --stdin)) {
+        error make { msg: $"Parameter '($param_name)' requires --params in non-interactive mode" }
+      }
+
       # Select value interactively
       let value = if (not $is_interactive_param) and (which fzf | is-not-empty) and (not ($options | is-empty)) {
         # Use fzf if available and we have options (not for interactive params)
