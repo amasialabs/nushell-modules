@@ -62,8 +62,11 @@ def send-notification [message: string, title: string = "Reminder"] {
   let os_long = ($host | get long_os_version)
 
   if ($os == "Darwin") {
-    # macOS
-    ^osascript -e $'display notification "($message)" with title "($title)"'
+    # macOS - escape '\' and '"' before embedding into the AppleScript string
+    # literal so quotes in user text can't break or inject the script.
+    let safe_msg = ($message | str replace --all '\' '\\' | str replace --all '"' '\"')
+    let safe_title = ($title | str replace --all '\' '\\' | str replace --all '"' '\"')
+    ^osascript -e $'display notification "($safe_msg)" with title "($safe_title)"'
   } else if ($os_long | str starts-with "Linux") {
     # Linux - try notify-send if available
     let has_notify = (which notify-send | is-not-empty)
