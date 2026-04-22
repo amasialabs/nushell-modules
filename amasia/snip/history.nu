@@ -95,13 +95,13 @@ export def get-history [--limit: int = 20] {
   $log
   | lines
   | each {|line|
-    let parts = ($line | split column (char tab))
+    let parts = ($line | split column (char tab) hash date message)
     if ($parts | length) >= 1 {
       let row = ($parts | first)
       {
-        hash: $row.column1,
-        date: $row.column2,
-        message: $row.column3
+        hash: $row.hash,
+        date: $row.date,
+        message: $row.message
       }
     } else {
       null
