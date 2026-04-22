@@ -142,11 +142,21 @@ export def list-sources [] {
   $files
   | each {|file_path|
     let name = ($file_path | path parse | get stem)
-    {
-      name: $name,
-      is_default: ($name == "default")
+    # Skip stems that wouldn't round-trip through validate-source-name
+    # (e.g. leading/trailing whitespace, path separators). Listing them
+    # would advertise sources no command can reach, since every caller
+    # goes through snip-source-path which trims and validates.
+    let roundtrips = (try { (validate-source-name $name) == $name } catch { false })
+    if $roundtrips {
+      {
+        name: $name,
+        is_default: ($name == "default")
+      }
+    } else {
+      null
     }
   }
+  | where {|r| $r != null }
   | sort-by name
 }
 
