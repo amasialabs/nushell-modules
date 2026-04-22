@@ -12,6 +12,12 @@ if not ($mods | path exists) { mkdir $mods }
 mut updated = true
 
 if ([$mods ".git"] | path join | path exists) {
+    # Refuse to hard-reset a repo that isn't the amasialabs one so we
+    # don't wipe a user's unrelated clone sitting at this path.
+    let current_origin = (try { ^git -C $mods remote get-url origin | str trim } catch { "" })
+    if ($current_origin != $repo and $current_origin != $"($repo).git") {
+        error make { msg: $"Refusing to install into ($mods): existing git repository has origin '($current_origin)', expected '($repo)'. Move or remove the directory before re-running." }
+    }
     let before = (^git -C $mods rev-parse HEAD | str trim)
     ^git -C $mods fetch --quiet --depth 1 origin main
     ^git -C $mods reset --quiet --hard FETCH_HEAD
