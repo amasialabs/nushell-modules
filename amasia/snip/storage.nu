@@ -52,8 +52,30 @@ export def snip-default-path [] {
   $paths.default_file
 }
 
+# Validate a source name so it cannot escape the snip directory.
+# Allows letters, digits, underscore, hyphen, and dot, but rejects empty
+# strings, "." / ".." on their own, and anything containing a path
+# separator.
+export def validate-source-name [name: string] {
+  let trimmed = ($name | str trim)
+  if ($trimmed | is-empty) {
+    error make { msg: "Source name must not be empty" }
+  }
+  if ($trimmed == "." or $trimmed == "..") {
+    error make { msg: $"Invalid source name '($trimmed)'" }
+  }
+  if ($trimmed =~ '[/\\]') {
+    error make { msg: $"Source name '($trimmed)' must not contain path separators" }
+  }
+  if (not ($trimmed =~ '^[A-Za-z0-9._-]+$')) {
+    error make { msg: $"Invalid source name '($trimmed)'. Allowed characters: letters, digits, '.', '_', '-'" }
+  }
+  $trimmed
+}
+
 export def snip-source-path [name: string] {
-  (snip-dir) | path join $"($name).nuon"
+  let safe = (validate-source-name $name)
+  (snip-dir) | path join $"($safe).nuon"
 }
 
 # Load sources by scanning directory for .nuon files
