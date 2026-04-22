@@ -281,7 +281,7 @@ export def update-snippet-params [
 
   # Exit early if nothing to add (all were duplicates)
   if ($params | columns | is-empty) {
-    print $"Added parameters to '($name)':"
+    print $"No new parameter values for '($name)'"
     return
   }
 
