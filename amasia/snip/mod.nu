@@ -1,7 +1,7 @@
 # amasia/snip/mod.nu - snip module
 
 # Version constant
-const SNIP_VERSION = "0.5.9"
+const SNIP_VERSION = "0.5.10"
 
 # Export storage helpers
 use storage.nu [list-sources snip-source-path]
@@ -30,6 +30,7 @@ use params.nu [
   load-snippet-with-params
   extract-placeholders
   parse-placeholders
+  split-key-value
 ]
 
 # Add parameter options for a snippet
@@ -64,10 +65,10 @@ export def "params rm" [
   mut full_keys = []
   mut pairs = {}
   for $it in $items {
-    if ($it | str contains "=") {
-      let parts = ($it | split row "=" | take 2)
-      let key = ($parts | first)
-      let val = ($parts | skip 1 | first)
+    let kv = (split-key-value $it)
+    if $kv != null {
+      let key = $kv.key
+      let val = $kv.value
       if ($pairs | columns | any {|c| $c == $key}) {
         let existing = ($pairs | get $key)
         $pairs = ($pairs | upsert $key ($existing | append $val))
@@ -578,10 +579,10 @@ def snip-dispatch [subcommand: string = "ls", args: list<string> = []] {
           $yes = true
           $idx = $idx + 1
         } else {
-          if ($token | str contains "=") {
-            let parts = ($token | split row "=" | take 2)
-            let key = ($parts | first)
-            let val = ($parts | skip 1 | first)
+          let kv = (split-key-value $token)
+          if $kv != null {
+            let key = $kv.key
+            let val = $kv.value
             if ($pairs | columns | any {|c| $c == $key}) {
               let existing = ($pairs | get $key)
               $pairs = ($pairs | upsert $key ($existing | append $val))

@@ -26,6 +26,31 @@ def parse-param-string [input: string] {
   }
 }
 
+# Serialize a {value, description} record back into the "value#description"
+# storage format, escaping literal '#' in value as '\#' so the round trip is
+# lossless. Empty description is serialized as value alone.
+export def serialize-param-string [record: record] {
+  let escaped_value = ($record.value | str replace --all '#' '\#')
+  if ($record.description | is-empty) {
+    $escaped_value
+  } else {
+    let escaped_desc = ($record.description | str replace --all '#' '\#')
+    $"($escaped_value)#($escaped_desc)"
+  }
+}
+
+# Split a "key=value" pair on the FIRST '=' only, so values containing '='
+# (e.g. "url=https://a.com?x=1") are preserved intact. Returns a
+# {key, value} record, or null if the input contains no '='.
+export def split-key-value [pair: string] {
+  let idx = ($pair | str index-of "=")
+  if $idx < 0 { return null }
+  {
+    key: ($pair | str substring 0..($idx - 1)),
+    value: ($pair | str substring ($idx + 1)..)
+  }
+}
+
 # Parse list of parameter strings into records
 # Input: ["value1#desc1", "value2", "value3#desc3"]
 # Output: [{value: "value1", description: "desc1"}, {value: "value2", description: ""}, ...]
@@ -179,20 +204,16 @@ export def update-snippet-params [
   mut invalid_params = []
   mut interactive_params = []
   for $pair in $param_pairs {
-    if not ($pair | str contains "=") {
+    let kv = (split-key-value $pair)
+    if $kv == null {
       error make { msg: $"Invalid parameter format: '($pair)'. Expected 'key=value' or 'key=value#description'" }
     }
-    let parts = ($pair | split row "=" | take 2)
-    let key = ($parts | first)
-    let raw_val_desc = ($parts | skip 1 | first)
+    let key = $kv.key
+    let raw_val_desc = $kv.value
 
-    # Parse and normalize value#description to remove quotes from description
+    # Parse and re-serialize so storage is lossless for literal '#' in value.
     let parsed = (parse-param-string $raw_val_desc)
-    let val_desc = if ($parsed.description | is-empty) {
-      $parsed.value
-    } else {
-      $"($parsed.value)#($parsed.description)"
-    }
+    let val_desc = (serialize-param-string $parsed)
 
     # Check if parameter is interactive-only
     if ($interactive_placeholders | any {|p| $p == $key}) {
@@ -422,12 +443,13 @@ export def remove-snippet-param-values [
 
   let initial_params = $snippet.parameters
 
-  # Build a map param -> values-to-remove
+  # Build a map param -> values-to-remove, normalizing escape sequences so
+  # user input like '\#' matches stored unescaped values.
   let removal_map = (
     $removals
     | reduce -f {} {|r, acc|
         let key = $r.name
-        let vals = ($r.values | default [])
+        let vals = (($r.values | default []) | each {|v| (parse-param-string $v).value })
         if ($acc | columns | any {|c| $c == $key}) {
           let combined = ((($acc | get $key) | default []) | append $vals)
           $acc | upsert $key $combined
@@ -451,8 +473,11 @@ export def remove-snippet-param-values [
     } else {
       let existing_vals_raw = ($initial_params | get $key)
       let existing_vals = (parse-param-list $existing_vals_raw | each {|v| $v.value})
-      let matching_vals = ($r.values | where {|v| $existing_vals | any {|x| $x == $v}})
-      let non_matching_vals = ($r.values | where {|v| not ($existing_vals | any {|x| $x == $v})})
+      # Normalize user-supplied values through parse-param-string so
+      # '\#' in input matches the literal '#' stored after unescaping.
+      let requested_vals = ($r.values | each {|v| (parse-param-string $v).value })
+      let matching_vals = ($requested_vals | where {|v| $existing_vals | any {|x| $x == $v}})
+      let non_matching_vals = ($requested_vals | where {|v| not ($existing_vals | any {|x| $x == $v})})
 
       if not ($matching_vals | is-empty) {
         $actual_removals = ($actual_removals | append {name: $key, values: $matching_vals})
