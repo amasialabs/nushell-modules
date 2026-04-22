@@ -75,6 +75,48 @@ export def snip-source-path [name: string] {
   (snip-dir) | path join $"($safe).nuon"
 }
 
+# Validate that a parsed source file is a list/table of records with the
+# required 'name' (non-empty string) and 'commands' (list<string>)
+# fields. Raises with the source name/path on the first bad entry so
+# corrupt files don't get silently treated as empty.
+export def validate-source-records [
+  parsed: any,
+  source_name: string,
+  source_path: string,
+] {
+  let desc = ($parsed | describe)
+  # Accept list<record<...>> and table<...> (both are semantically a
+  # sequence of records); reject anything else up front.
+  let is_sequence = (($desc | str starts-with "list<") or ($desc | str starts-with "table<") or ($desc == "list" or $desc == "table"))
+  if not $is_sequence {
+    error make { msg: $"Source '($source_name)' at ($source_path) must be a list of snippet records, got ($desc)" }
+  }
+  $parsed | enumerate | each {|entry|
+    let idx = $entry.index
+    let item = $entry.item
+    let item_desc = ($item | describe)
+    if not ($item_desc | str starts-with "record<") {
+      error make { msg: $"Entry ($idx) in source '($source_name)' at ($source_path) must be a record, got ($item_desc)" }
+    }
+    let cols = ($item | columns)
+    if not ($cols | any {|c| $c == "name"}) {
+      error make { msg: $"Entry ($idx) in source '($source_name)' at ($source_path) is missing the 'name' field" }
+    }
+    if not ($cols | any {|c| $c == "commands"}) {
+      error make { msg: $"Entry '($item.name)' in source '($source_name)' at ($source_path) is missing the 'commands' field" }
+    }
+    let name_val = ($item.name | into string | str trim)
+    if ($name_val | str length) == 0 {
+      error make { msg: $"Entry ($idx) in source '($source_name)' at ($source_path) has an empty 'name' field" }
+    }
+    let cmd_desc = ($item.commands | describe)
+    if not ($cmd_desc | str starts-with "list<string") {
+      error make { msg: $"Entry '($name_val)' in source '($source_name)' at ($source_path) must use 'commands' as list<string>" }
+    }
+  } | ignore
+  $parsed
+}
+
 # Load sources by scanning directory for .nuon files
 export def list-sources [] {
   let paths = (ensure-snip-paths)

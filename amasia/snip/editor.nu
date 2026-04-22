@@ -1,6 +1,6 @@
 # amasia/snip/editor.nu - snippet authoring commands
 
-use storage.nu [list-sources save-snip-sources snip-source-path]
+use storage.nu [list-sources save-snip-sources snip-source-path validate-source-records]
 use history.nu [commit-changes make-commit-message]
 use params.nu [parse-placeholders]
 
@@ -304,6 +304,7 @@ export def --env "update" [
           let parsed = (try { $raw | from nuon } catch {|e|
             error make { msg: $"Failed to parse source '($src.name)' at ($path): ($e.msg)" }
           })
+          validate-source-records $parsed $src.name $path
           $parsed | each {|snip| $snip | insert source_name $src.name | insert source_path $path }
         }
       } else {
@@ -615,6 +616,7 @@ export def --env "rename" [
           let snips = (try { $raw | from nuon } catch {|e|
             error make { msg: $"Failed to parse source '($src.name)' at ($path): ($e.msg)" }
           })
+          validate-source-records $snips $src.name $path
           $snips | each {|s| $s | insert source $src.name | insert source_path $path }
         }
       } else {
