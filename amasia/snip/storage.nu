@@ -53,9 +53,9 @@ export def snip-default-path [] {
 }
 
 # Validate a source name so it cannot escape the snip directory.
-# Allows letters, digits, underscore, hyphen, and dot, but rejects empty
-# strings, "." / ".." on their own, and anything containing a path
-# separator.
+# Rejects empty strings, "." / ".." on their own, and anything containing
+# a path separator. Other characters (including spaces and non-ASCII) are
+# allowed so that pre-existing source files with such names keep working.
 export def validate-source-name [name: string] {
   let trimmed = ($name | str trim)
   if ($trimmed | is-empty) {
@@ -66,9 +66,6 @@ export def validate-source-name [name: string] {
   }
   if ($trimmed =~ '[/\\]') {
     error make { msg: $"Source name '($trimmed)' must not contain path separators" }
-  }
-  if (not ($trimmed =~ '^[A-Za-z0-9._-]+$')) {
-    error make { msg: $"Invalid source name '($trimmed)'. Allowed characters: letters, digits, '.', '_', '-'" }
   }
   $trimmed
 }
